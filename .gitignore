@@ -1,5 +1,6 @@
 cmake_install.cmake
 build/
+bagfiles/
 devel/
 bin/
 lib/
