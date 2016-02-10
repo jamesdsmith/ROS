@@ -50,6 +50,7 @@
 #include <pcl_ros/point_cloud.h>
 #include <pcl/registration/gicp.h>
 #include <Eigen/Dense>
+#include <cmath>
 
 typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
 
@@ -65,7 +66,7 @@ class UAVMapper {
   bool RegisterCallbacks(const ros::NodeHandle& n);
 
   // Helpers.
-  tf::Transform PointCloudOdometry(const PointCloud::ConstPtr& cloud);
+  Eigen::Matrix4f PointCloudOdometry(const PointCloud::ConstPtr& cloud);
 
   // Callbacks.
   void AddPointCloudCallback(const PointCloud::ConstPtr& cloud);
@@ -75,7 +76,7 @@ class UAVMapper {
   tf::TransformBroadcaster transform_broadcaster_;
 
   // Integrated transform.
-  tf::Transform integrated_tf_;
+  Eigen::Matrix4f integrated_tf_;
 
   // Last point cloud.
   PointCloud::ConstPtr previous_cloud_;

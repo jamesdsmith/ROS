@@ -80,23 +80,28 @@ bool UAVMapper::RegisterCallbacks(const ros::NodeHandle& n) {
 // Point cloud callback.
 void UAVMapper::AddPointCloudCallback(const PointCloud::ConstPtr& cloud) {
   // Get odometry estimate.
-  tf::Transform incremental_tf = PointCloudOdometry(cloud);
+  Eigen::Matrix4f incremental_tf = PointCloudOdometry(cloud);
   integrated_tf_ *= incremental_tf;
+
+  // Extract quaternion from integrated_tf_.
+  float qw = std::sqrt(1.0 + integrated_tf_(0, 0) + integrated_tf_(1, 1) +
+                       integrated_tf_(2, 2)) / 2.0;
+  float qx = (integrated_tf_(2, 1) - integrated_tf_(1, 2)) / (4.0 * qw);
+  float qy = (integrated_tf_(0, 2) - integrated_tf_(2, 0)) / (4.0 * qw);
+  float qz = (integrated_tf_(1, 0) - integrated_tf_(0, 1)) / (4.0 * qw);
 
   // Send transform.
   geometry_msgs::TransformStamped stamped;
-  tf::Quaternion quaternion = integrated_tf_.getRotation();
-  tf::Vector3 translation = integrated_tf_.getOrigin();
 
-  stamped.transform.rotation.x = quaternion.getAxis().getX();
-  stamped.transform.rotation.y = quaternion.getAxis().getY();
-  stamped.transform.rotation.z = quaternion.getAxis().getZ();
-  stamped.transform.rotation.w = quaternion.getW();
-  stamped.transform.translation.x = translation.getX();
-  stamped.transform.translation.y = translation.getY();
-  stamped.transform.translation.z = translation.getZ();
+  stamped.transform.rotation.x = qx;
+  stamped.transform.rotation.y = qy;
+  stamped.transform.rotation.z = qz;
+  stamped.transform.rotation.w = qw;
+  stamped.transform.translation.x = integrated_tf_(0, 3);
+  stamped.transform.translation.y = integrated_tf_(1, 3);
+  stamped.transform.translation.z = integrated_tf_(2, 3);
 
-  stamped.header.stamp = ros::Time().fromNSec(cloud->header.stamp);
+  stamped.header.stamp = ros::Time().fromNSec(cloud->header.stamp * 1000);
   stamped.header.frame_id = "velodyne";
   stamped.child_frame_id = "world";
   transform_broadcaster_.sendTransform(stamped);
@@ -106,14 +111,15 @@ void UAVMapper::AddPointCloudCallback(const PointCloud::ConstPtr& cloud) {
 }
 
 // Calculate incremental transform.
-tf::Transform UAVMapper::PointCloudOdometry(const PointCloud::ConstPtr& cloud) {
+Eigen::Matrix4f UAVMapper::PointCloudOdometry(const PointCloud::ConstPtr& cloud) {
   if (!previous_cloud_) {
-    tf::Transform identity_tf;
-    identity_tf.setIdentity();
+    ROS_INFO("[DEBUG] previous_cloud_ null. Returning identity transform.");
+    Eigen::Matrix4f identity_tf = Eigen::Matrix4f::Identity();
     return identity_tf;
   }
 
   // Setup.
+  ROS_INFO("[DEBUG] Just got a new point cloud. Running icp.");
   pcl::GeneralizedIterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp;
   icp.setInputSource(previous_cloud_);
   icp.setInputTarget(cloud);
@@ -124,10 +130,6 @@ tf::Transform UAVMapper::PointCloudOdometry(const PointCloud::ConstPtr& cloud) {
 
   // Get transform.
   Eigen::Matrix4f pose = icp.getFinalTransformation();
-  std::cout << pose << std::endl;
-
-  return tf::Transform(tf::Matrix3x3(pose(0, 0), pose(0, 1), pose(0, 2),
-                                     pose(1, 0), pose(1, 1), pose(1, 2),
-                                     pose(2, 0), pose(2, 1), pose(2, 2)),
-                       tf::Vector3(pose(0, 3), pose(1, 3), pose(2, 3)));
+  ROS_INFO("[DEBUG] icp completed. Returning a pose.");
+  return pose;
 }
