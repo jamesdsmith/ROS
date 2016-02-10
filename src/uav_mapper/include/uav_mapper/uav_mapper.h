@@ -45,6 +45,13 @@
 
 #include <ros/ros.h>
 #include <sensor_msgs/PointCloud2.h>
+#include <tf/transform_broadcaster.h>
+#include <pcl/point_types.h>
+#include <pcl_ros/point_cloud.h>
+#include <pcl/registration/gicp.h>
+#include <Eigen/Dense>
+
+typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
 
 class UAVMapper {
  public:
@@ -58,18 +65,20 @@ class UAVMapper {
   bool RegisterCallbacks(const ros::NodeHandle& n);
 
   // Helpers.
-  geometry_msgs::TransformStamped PointCloudOdometry(
-     const sensor_msgs::PointCloud::ConstPtr& cloud);
+  tf::Transform PointCloudOdometry(const PointCloud::ConstPtr& cloud);
 
   // Callbacks.
-  void AddPointCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud);
+  void AddPointCloudCallback(const PointCloud::ConstPtr& cloud);
 
   // Communication.
   ros::Subscriber point_cloud_subscriber_;
-  ros::Publisher transform_publisher_;
+  tf::TransformBroadcaster transform_broadcaster_;
 
-  // Aggregate point cloud.
-  sensor_msgs::PointCloud2 map_;
+  // Integrated transform.
+  tf::Transform integrated_tf_;
+
+  // Last point cloud.
+  PointCloud::ConstPtr previous_cloud_;
 
   // Name.
   std::string name_;

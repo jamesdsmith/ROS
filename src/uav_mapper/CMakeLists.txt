@@ -11,7 +11,8 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   sensor_msgs
   geometry_msgs
-  libpcl-all-dev
+  pcl_ros
+  tf
 )
 
 catkin_package(
@@ -21,7 +22,8 @@ catkin_package(
     roscpp
     sensor_msgs
     geometry_msgs
-    libpcl-all-dev
+    pcl_ros
+    tf
 )
 
 include_directories(include ${catkin_INCLUDE_DIRS})
