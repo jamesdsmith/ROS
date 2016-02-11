@@ -73,6 +73,7 @@ class UAVMapper {
 
   // Communication.
   ros::Subscriber point_cloud_subscriber_;
+  ros::Publisher point_cloud_publisher_;
   tf::TransformBroadcaster transform_broadcaster_;
 
   // Integrated transform.

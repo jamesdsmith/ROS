@@ -73,6 +73,7 @@ bool UAVMapper::RegisterCallbacks(const ros::NodeHandle& n) {
   point_cloud_subscriber_ =
     node.subscribe<PointCloud>("/velodyne_points", 10,
                    &UAVMapper::AddPointCloudCallback, this);
+  point_cloud_publisher_ = node.advertise<PointCloud>("robot", 10, false);
 
   return true;
 }
@@ -102,9 +103,16 @@ void UAVMapper::AddPointCloudCallback(const PointCloud::ConstPtr& cloud) {
   stamped.transform.translation.z = integrated_tf_(2, 3);
 
   stamped.header.stamp = ros::Time().fromNSec(cloud->header.stamp * 1000);
-  stamped.header.frame_id = "velodyne";
+  stamped.header.frame_id = "robot";
   stamped.child_frame_id = "world";
   transform_broadcaster_.sendTransform(stamped);
+
+  // Send point cloud.
+  PointCloud::Ptr msg(new PointCloud);
+  msg->header = cloud->header;
+  msg->header.frame_id = "robot";
+  msg->points = cloud->points;
+  point_cloud_publisher_.publish(msg);
 
   // Update pointer to last point cloud.
   previous_cloud_ = cloud;
