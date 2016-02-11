@@ -49,7 +49,10 @@
 #include <pcl/point_types.h>
 #include <pcl_ros/point_cloud.h>
 #include <pcl/registration/gicp.h>
+#include <pcl/filters/voxel_grid.h>
+#include <pcl/filters/statistical_outlier_removal.h>
 #include <Eigen/Dense>
+#include <Eigen/Geometry>
 #include <cmath>
 
 typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
@@ -80,7 +83,7 @@ class UAVMapper {
   Eigen::Matrix4f integrated_tf_;
 
   // Last point cloud.
-  PointCloud::ConstPtr previous_cloud_;
+  PointCloud::Ptr previous_cloud_;
 
   // Name.
   std::string name_;
