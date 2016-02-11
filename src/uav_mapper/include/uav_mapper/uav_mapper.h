@@ -45,7 +45,7 @@
 
 #include <ros/ros.h>
 #include <sensor_msgs/PointCloud2.h>
-#include <tf/transform_broadcaster.h>
+#include <tf2_ros/transform_broadcaster.h>
 #include <pcl/point_types.h>
 #include <pcl_ros/point_cloud.h>
 #include <pcl/registration/gicp.h>
@@ -77,7 +77,10 @@ class UAVMapper {
   // Communication.
   ros::Subscriber point_cloud_subscriber_;
   ros::Publisher point_cloud_publisher_;
-  tf::TransformBroadcaster transform_broadcaster_;
+  ros::Publisher point_cloud_publisher_filtered_;
+  ros::Publisher point_cloud_publisher_previous_;
+
+  tf2_ros::TransformBroadcaster transform_broadcaster_;
 
   // Integrated transform.
   Eigen::Matrix4f integrated_tf_;
