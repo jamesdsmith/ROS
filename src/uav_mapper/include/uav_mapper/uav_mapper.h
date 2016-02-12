@@ -78,12 +78,13 @@ class UAVMapper {
   ros::Subscriber point_cloud_subscriber_;
   ros::Publisher point_cloud_publisher_;
   ros::Publisher point_cloud_publisher_filtered_;
-  ros::Publisher point_cloud_publisher_previous_;
+  ros::Publisher point_cloud_publisher_aligned_;
 
   tf2_ros::TransformBroadcaster transform_broadcaster_;
 
   // Integrated transform.
-  Eigen::Matrix4f integrated_tf_;
+  Eigen::Quaterniond integrated_rotation_;
+  Eigen::Vector3d integrated_translation_;
 
   // Last point cloud.
   PointCloud::Ptr previous_cloud_;

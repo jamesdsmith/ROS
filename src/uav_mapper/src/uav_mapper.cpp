@@ -44,12 +44,13 @@
 
 // Constructor/destructor.
 UAVMapper::~UAVMapper() {}
-UAVMapper::UAVMapper() { integrated_tf_.setIdentity(); }
+UAVMapper::UAVMapper() {}
 
 // Initialize.
 bool UAVMapper::Initialize(const ros::NodeHandle& n) {
   name_ = ros::names::append(n.getNamespace(), "uav_mapper");
-  integrated_tf_ = Eigen::Matrix4f::Identity();
+  integrated_rotation_.setIdentity();
+  integrated_translation_ = Eigen::Vector3d::Zero();
 
   if (!LoadParameters(n)) {
     ROS_ERROR("%s: Failed to load parameters.", name_.c_str());
@@ -72,11 +73,11 @@ bool UAVMapper::RegisterCallbacks(const ros::NodeHandle& n) {
   ros::NodeHandle node(n);
 
   point_cloud_subscriber_ =
-    node.subscribe<PointCloud>("/velodyne_points", 10,
+    node.subscribe<PointCloud>("/velodyne_points", 100,
                    &UAVMapper::AddPointCloudCallback, this);
   point_cloud_publisher_ = node.advertise<PointCloud>("robot", 10, false);
   point_cloud_publisher_filtered_ = node.advertise<PointCloud>("filtered", 10, false);
-  point_cloud_publisher_previous_ = node.advertise<PointCloud>("previous", 10, false);
+  point_cloud_publisher_aligned_ = node.advertise<PointCloud>("aligned", 10, false);
 
   return true;
 }
@@ -84,39 +85,23 @@ bool UAVMapper::RegisterCallbacks(const ros::NodeHandle& n) {
 // Point cloud callback.
 void UAVMapper::AddPointCloudCallback(const PointCloud::ConstPtr& cloud) {
   // Get odometry estimate.
-  Eigen::Matrix4f incremental_tf = PointCloudOdometry(cloud);
-  integrated_tf_ = incremental_tf * integrated_tf_;
-
-  std::cout << "integrated: " << std::endl;
-  std::cout << integrated_tf_ << std::endl;
-
-  // Extract quaternion from integrated_tf_.
-  const Eigen::Matrix3f rotation = integrated_tf_.block(0, 0, 3, 3);
-  Eigen::Quaternionf quaternion(rotation);
+  PointCloudOdometry(cloud);
 
   // Send transform.
   geometry_msgs::TransformStamped stamped;
 
-  stamped.transform.rotation.x = quaternion.x();
-  stamped.transform.rotation.y = quaternion.y();
-  stamped.transform.rotation.z = quaternion.z();
-  stamped.transform.rotation.w = quaternion.w();
-  stamped.transform.translation.x = integrated_tf_(0, 3);
-  stamped.transform.translation.y = integrated_tf_(1, 3);
-  stamped.transform.translation.z = integrated_tf_(2, 3);
+  stamped.transform.rotation.x = integrated_rotation_.x();
+  stamped.transform.rotation.y = integrated_rotation_.y();
+  stamped.transform.rotation.z = integrated_rotation_.z();
+  stamped.transform.rotation.w = integrated_rotation_.w();
+  stamped.transform.translation.x = integrated_translation_(0);
+  stamped.transform.translation.y = integrated_translation_(1);
+  stamped.transform.translation.z = integrated_translation_(2);
 
   stamped.header.stamp.fromNSec(cloud->header.stamp * 1000);
   stamped.header.frame_id = "world";
   stamped.child_frame_id = "robot";
   transform_broadcaster_.sendTransform(stamped);
-
-  std::cout << stamped.transform.rotation.x << std::endl;
-  std::cout << stamped.transform.rotation.y << std::endl;
-  std::cout << stamped.transform.rotation.z << std::endl;
-  std::cout << stamped.transform.rotation.w << std::endl;
-  std::cout << stamped.transform.translation.x << std::endl;
-  std::cout << stamped.transform.translation.y << std::endl;
-  std::cout << stamped.transform.translation.z << std::endl;
 
   // Send point cloud.
   PointCloud msg = *cloud;
@@ -139,41 +124,40 @@ Eigen::Matrix4f UAVMapper::PointCloudOdometry(const PointCloud::ConstPtr& cloud)
   pcl::StatisticalOutlierRemoval<pcl::PointXYZ> sor_filter;
   sor_filter.setInputCloud(grid_cloud);
   sor_filter.setMeanK(30);
-  sor_filter.setStddevMulThresh(1.0);
+  sor_filter.setStddevMulThresh(0.3);
   sor_filter.filter(*sor_cloud);
 
   // Handle base case.
   if (!previous_cloud_) {
-    // Update pointer to last point cloud.
     previous_cloud_ = sor_cloud;
-
-    Eigen::Matrix4f identity_tf = Eigen::Matrix4f::Identity();
-    return identity_tf;
   }
-
-  sor_cloud->header.frame_id = "robot";
-  previous_cloud_->header.frame_id = "robot";
-
-  point_cloud_publisher_filtered_.publish(sor_cloud);
-  point_cloud_publisher_previous_.publish(previous_cloud_);
 
   // Setup.
   pcl::GeneralizedIterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp;
   icp.setInputSource(sor_cloud);
   icp.setInputTarget(previous_cloud_);
-  icp.setMaxCorrespondenceDistance(0.5);
+  icp.setMaxCorrespondenceDistance(1.0);
   icp.setMaximumIterations(10);
   icp.setTransformationEpsilon(1e-8);
-  icp.setRANSACOutlierRejectionThreshold(0.5);
+  icp.setRANSACOutlierRejectionThreshold(0.25);
 
   // Align.
   PointCloud aligned_cloud;
   icp.align(aligned_cloud);
+
+  sor_cloud->header.frame_id = "robot";
+  aligned_cloud.header.frame_id = "robot";
+  point_cloud_publisher_filtered_.publish(sor_cloud);
+  point_cloud_publisher_aligned_.publish(aligned_cloud);
 
   // Update pointer to last point cloud.
   previous_cloud_ = sor_cloud;
 
   // Get transform.
   Eigen::Matrix4f pose = icp.getFinalTransformation();
-  return pose;
+  Eigen::Matrix3d rotation = pose.block(0, 0, 3, 3).cast<double>();
+  Eigen::Vector3d translation = pose.block(0, 3, 3, 1).cast<double>();
+
+  integrated_rotation_ = rotation * integrated_rotation_;
+  integrated_translation_ = rotation * integrated_translation_ + translation;
 }
