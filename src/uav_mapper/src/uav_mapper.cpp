@@ -73,7 +73,7 @@ bool UAVMapper::RegisterCallbacks(const ros::NodeHandle& n) {
   ros::NodeHandle node(n);
 
   point_cloud_subscriber_ =
-    node.subscribe<PointCloud>("/velodyne_points", 100,
+    node.subscribe<PointCloud>("/velodyne_points", 10,
                    &UAVMapper::AddPointCloudCallback, this);
   point_cloud_publisher_ = node.advertise<PointCloud>("robot", 10, false);
   point_cloud_publisher_filtered_ = node.advertise<PointCloud>("filtered", 10, false);

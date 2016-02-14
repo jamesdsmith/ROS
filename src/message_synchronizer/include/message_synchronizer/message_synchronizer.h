@@ -44,6 +44,8 @@
 #define MESSAGE_SYNCHRONIZER_H
 
 #include <ros/ros.h>
+#include <vector>
+#include <algorithm>
 
 template<typename MessageType>
 class MessageSynchronizer {
@@ -51,16 +53,23 @@ class MessageSynchronizer {
   explicit MessageSynchronizer();
   ~MessageSynchronizer();
 
-  bool Initialize(const ros::NodeHandle& n);
+  bool Initialize(const ros::NodeHandle& n, const std::string& topic,
+                  double timer_period);
 
  private:
   bool LoadParameters(const ros::NodeHandle& n);
-  bool RegisterCallbacks(const ros::NodeHandle& n);
+  bool RegisterCallbacks(const ros::NodeHandle& n, const std::string& topic,
+                         double timer_period);
+
+  // Callbacks.
+  void AddMessageCallback(const MessageType& msg);
+  void TimerCallback();
 
   // Member variables.
   ros::Subscriber subscriber_;
   ros::Publisher publisher_;
   std::vector<MessageType> buffer_;
+  ros::Timer timer_;
   std::string name_;
 };
 

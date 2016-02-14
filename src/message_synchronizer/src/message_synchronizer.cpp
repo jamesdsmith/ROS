@@ -51,7 +51,9 @@ MessageSynchronizer<MessageType>::~MessageSynchronizer() {}
 
 // Initialize.
 template<typename MessageType>
-bool MessageSynchronizer<MessageType>::Initialize(const ros::NodeHandle& n) {
+bool MessageSynchronizer<MessageType>::Initialize(const ros::NodeHandle& n,
+                                                  const std::string& topic,
+                                                  double timer_period) {
   name_ = ros::names::append(n.getNamespace(), "message_synchronizer");
 
   if (!LoadParameters(n)) {
@@ -59,7 +61,7 @@ bool MessageSynchronizer<MessageType>::Initialize(const ros::NodeHandle& n) {
     return false;
   }
 
-  if (!RegisterCallbacks(n)) {
+  if (!RegisterCallbacks(n, topic, timer_period)) {
     ROS_ERROR("%s: Failed to register callbacks.", name_.c_str());
     return false;
   }
@@ -75,14 +77,31 @@ bool MessageSynchronizer<MessageType>::LoadParameters(const ros::NodeHandle& n) 
 
 // Register callback functions.
 template<typename MessageType>
-bool MessageSynchronizer<MessageType>::RegisterCallbacks(const ros::NodeHandle& n) {
+bool MessageSynchronizer<MessageType>::RegisterCallbacks(const ros::NodeHandle& n,
+                                                         const std::string& topic,
+                                                         double timer_period) {
   ros::NodeHandle node(n);
 
-  subscriber_ = node.subscribe<PointCloud>("/velodyne_points", 100,
-                                           &UAVMapper::AddPointCloudCallback, this);
-  point_cloud_publisher_ = node.advertise<PointCloud>("robot", 10, false);
-  point_cloud_publisher_filtered_ = node.advertise<PointCloud>("filtered", 10, false);
-  point_cloud_publisher_aligned_ = node.advertise<PointCloud>("aligned", 10, false);
+  subscriber_ =
+    node.subscribe<MessageType>(topic.c_str(), 10,
+                                &MessageSynchronizer::AddMessageCallback, this);
+  publisher_ = node.advertise<MessageType>(topic.c_str(), 10, false);
+  timer_ = n.createTimer(ros::Duration(timer_period),
+                         &MessageSynchronizer::TimerCallback, this);
 
   return true;
+}
+
+// Message callback.
+template<typename MessageType>
+void MessageSynchronizer<MessageType>::AddMessageCallback(const MessageType& msg) {
+  buffer.push_back(msg);
+}
+
+// Timer callback.
+template<typename MessageType>
+void MessageSynchronizer<MessageType>::TimerCallback() {
+  // Sort buffer_ by timestamps.
+
+  // Publish each message in order.
 }
