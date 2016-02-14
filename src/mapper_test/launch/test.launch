@@ -1,0 +1,9 @@
+<launch>
+
+  <node name="mapper_test"
+        pkg="mapper_test"
+        type="mapper_test_node"
+        output="screen">
+  </node>
+
+</launch>
