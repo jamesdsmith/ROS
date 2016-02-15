@@ -95,13 +95,28 @@ bool MessageSynchronizer<MessageType>::RegisterCallbacks(const ros::NodeHandle& 
 // Message callback.
 template<typename MessageType>
 void MessageSynchronizer<MessageType>::AddMessageCallback(const MessageType& msg) {
-  buffer.push_back(msg);
+  buffer_.push_back(msg);
 }
 
 // Timer callback.
 template<typename MessageType>
 void MessageSynchronizer<MessageType>::TimerCallback() {
+  // Create a custom comparitor for sorting by timestamp.
+  struct {
+    bool operator()(MessageType& msg1, MessageType& msg2) {
+      return msg1.header.stamp < msg2.header.stamp;
+    }
+  } time_comparitor;
+
   // Sort buffer_ by timestamps.
+  std::sort(buffer_.begin(), buffer_.end(), time_comparitor);
 
   // Publish each message in order.
+  for (size_t ii = 0; ii < buffer_.size(); ii++) {
+    MessageType& msg = buffer_[ii];
+    publisher_.publish(msg);
+  }
+
+  // Clear buffer_.
+  buffer_.clear();
 }

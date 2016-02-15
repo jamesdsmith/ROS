@@ -49,6 +49,11 @@ UAVMapper::UAVMapper() {}
 // Initialize.
 bool UAVMapper::Initialize(const ros::NodeHandle& n) {
   name_ = ros::names::append(n.getNamespace(), "uav_mapper");
+
+  // Message synchronizer.
+  synchronizer_.Initialize(n, "/velodyne_points", 0.1);
+
+  // Integrated transform.
   integrated_rotation_.setIdentity();
   integrated_translation_ = Eigen::Vector3d::Zero();
 
@@ -73,7 +78,7 @@ bool UAVMapper::RegisterCallbacks(const ros::NodeHandle& n) {
   ros::NodeHandle node(n);
 
   point_cloud_subscriber_ =
-    node.subscribe<PointCloud>("/velodyne_points", 10,
+    node.subscribe<PointCloud>(name_ + "/velodyne_points", 10,
                    &UAVMapper::AddPointCloudCallback, this);
   point_cloud_publisher_ = node.advertise<PointCloud>("robot", 10, false);
   point_cloud_publisher_filtered_ = node.advertise<PointCloud>("filtered", 10, false);

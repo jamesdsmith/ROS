@@ -25,7 +25,7 @@ link_directories(
   ${catkin_LIBRARY_DIRS}
 )
 
-add_library(${PROJECT_NAME} src/${PROJECT_NAME}.cc)
+add_library(${PROJECT_NAME} src/${PROJECT_NAME}.cpp)
 
 target_link_libraries(${PROJECT_NAME}
   ${catkin_LIBRARIES}
@@ -42,8 +42,8 @@ install(DIRECTORY include/${PROJECT_NAME}/
   FILES_MATCHING PATTERN "*.h"
 )
 
-add_executable(${PROJECT_NAME}_node src/${PROJECT_NAME}_node.cc)
-target_link_libraries(${PROJECT_NAME}_node
-  ${PROJECT_NAME}
-  ${catkin_LIBRARIES}
-)
+#add_executable(${PROJECT_NAME}_node src/${PROJECT_NAME}_node.cpp)
+#target_link_libraries(${PROJECT_NAME}_node
+#  ${PROJECT_NAME}
+#  ${catkin_LIBRARIES}
+#)

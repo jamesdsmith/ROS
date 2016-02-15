@@ -36,62 +36,40 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-// This defines the uav_mapper node.
+// Start up a new message synchronizer.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#ifndef UAV_MAPPER_H
-#define UAV_MAPPER_H
+#ifndef MESSAGE_SYNCHRONIZER_H
+#define MESSAGE_SYNCHRONIZER_H
 
 #include <ros/ros.h>
-#include <message_synchronizer/message_synchronizer.h>
-#include <sensor_msgs/PointCloud2.h>
-#include <tf2_ros/transform_broadcaster.h>
-#include <pcl/point_types.h>
-#include <pcl_ros/point_cloud.h>
-#include <pcl/registration/gicp.h>
-#include <pcl/filters/voxel_grid.h>
-#include <pcl/filters/statistical_outlier_removal.h>
-#include <Eigen/Dense>
-#include <Eigen/Geometry>
-#include <cmath>
+#include <vector>
+#include <algorithm>
 
-typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
-
-class UAVMapper {
+template<typename MessageType>
+class MessageSynchronizer {
  public:
-  explicit UAVMapper();
-  ~UAVMapper();
+  explicit MessageSynchronizer();
+  ~MessageSynchronizer();
 
-  bool Initialize(const ros::NodeHandle& n);
+  bool Initialize(const ros::NodeHandle& n, const std::string& topic,
+                  double timer_period);
 
  private:
   bool LoadParameters(const ros::NodeHandle& n);
-  bool RegisterCallbacks(const ros::NodeHandle& n);
-
-  // Helpers.
-  Eigen::Matrix4f PointCloudOdometry(const PointCloud::ConstPtr& cloud);
+  bool RegisterCallbacks(const ros::NodeHandle& n, const std::string& topic,
+                         double timer_period);
 
   // Callbacks.
-  void AddPointCloudCallback(const PointCloud::ConstPtr& cloud);
+  void AddMessageCallback(const MessageType& msg);
+  void TimerCallback();
 
-  // Communication.
-  MessageSynchronizer<PointCloud> synchronizer_;
-  ros::Subscriber point_cloud_subscriber_;
-  ros::Publisher point_cloud_publisher_;
-  ros::Publisher point_cloud_publisher_filtered_;
-  ros::Publisher point_cloud_publisher_aligned_;
-
-  tf2_ros::TransformBroadcaster transform_broadcaster_;
-
-  // Integrated transform.
-  Eigen::Quaterniond integrated_rotation_;
-  Eigen::Vector3d integrated_translation_;
-
-  // Last point cloud.
-  PointCloud::Ptr previous_cloud_;
-
-  // Name.
+  // Member variables.
+  ros::Subscriber subscriber_;
+  ros::Publisher publisher_;
+  std::vector<MessageType> buffer_;
+  ros::Timer timer_;
   std::string name_;
 };
 
