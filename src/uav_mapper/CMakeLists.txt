@@ -13,7 +13,6 @@ find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   pcl_ros
   tf2_ros
-  message_synchronizer
 )
 
 catkin_package(
@@ -25,7 +24,6 @@ catkin_package(
     geometry_msgs
     pcl_ros
     tf2_ros
-    message_synchronizer
 )
 
 include_directories(include ${catkin_INCLUDE_DIRS})
