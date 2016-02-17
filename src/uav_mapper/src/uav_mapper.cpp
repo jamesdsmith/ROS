@@ -123,12 +123,14 @@ void UAVMapper::TimerCallback(const ros::TimerEvent& event) {
     stamped.child_frame_id = "robot";
     transform_broadcaster_.sendTransform(stamped);
 
-#if 0
+    previous_cloud_->header.stamp = stamp_.toNSec() / 1000;
+    previous_cloud_->header.frame_id = "robot";
+    point_cloud_publisher_filtered_.publish(*previous_cloud_);
+
     // Send point cloud.
     PointCloud msg = *cloud;
     msg.header.frame_id = "robot";
     point_cloud_publisher_.publish(msg);
-#endif
   }
 }
 
@@ -166,18 +168,15 @@ void UAVMapper::PointCloudOdometry(const PointCloud::ConstPtr& cloud) {
   pcl::GeneralizedIterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp;
   icp.setInputSource(sor_cloud);
   icp.setInputTarget(previous_cloud_);
-  icp.setMaxCorrespondenceDistance(1.0);
+  icp.setMaxCorrespondenceDistance(0.5);
   icp.setMaximumIterations(10);
   icp.setTransformationEpsilon(1e-12);
   icp.setEuclideanFitnessEpsilon(1e-8);
-  icp.setRANSACOutlierRejectionThreshold(1.0);
+  icp.setRANSACOutlierRejectionThreshold(0.5);
 
   // Align.
   PointCloud aligned_cloud;
   icp.align(aligned_cloud);
-
-  sor_cloud->header.frame_id = "robot";
-  point_cloud_publisher_filtered_.publish(*sor_cloud);
 
   // Update pointer to last point cloud.
   pcl::copyPointCloud(*sor_cloud, *previous_cloud_);
@@ -187,6 +186,7 @@ void UAVMapper::PointCloudOdometry(const PointCloud::ConstPtr& cloud) {
   Eigen::Matrix3d rotation = pose.block(0, 0, 3, 3).cast<double>();
   Eigen::Vector3d translation = pose.block(0, 3, 3, 1).cast<double>();
 
-  integrated_rotation_ = rotation * integrated_rotation_;
-  integrated_translation_ = rotation * integrated_translation_ + translation;
+  integrated_translation_ =
+    integrated_rotation_ * translation + integrated_translation_;
+  integrated_rotation_ = integrated_rotation_ * rotation;
  }
