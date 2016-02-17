@@ -70,26 +70,31 @@ class UAVMapper {
   bool RegisterCallbacks(const ros::NodeHandle& n);
 
   // Helpers.
-  Eigen::Matrix4f PointCloudOdometry(const PointCloud::ConstPtr& cloud);
+  void PointCloudOdometry(const PointCloud::ConstPtr& cloud);
 
   // Callbacks.
   void AddPointCloudCallback(const PointCloud::ConstPtr& cloud);
+  void TimerCallback(const ros::TimerEvent& event);
 
   // Communication.
-  MessageSynchronizer<PointCloud> synchronizer_;
+  MessageSynchronizer<PointCloud::ConstPtr> synchronizer_;
   ros::Subscriber point_cloud_subscriber_;
   ros::Publisher point_cloud_publisher_;
   ros::Publisher point_cloud_publisher_filtered_;
-  ros::Publisher point_cloud_publisher_aligned_;
-
   tf2_ros::TransformBroadcaster transform_broadcaster_;
 
+  ros::Timer timer_;
+
   // Integrated transform.
-  Eigen::Quaterniond integrated_rotation_;
+  Eigen::Matrix3d integrated_rotation_;
   Eigen::Vector3d integrated_translation_;
+  bool initialized_;
 
   // Last point cloud.
   PointCloud::Ptr previous_cloud_;
+
+  // Time.
+  ros::Time stamp_;
 
   // Name.
   std::string name_;

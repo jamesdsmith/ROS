@@ -43,9 +43,9 @@
 #ifndef MESSAGE_SYNCHRONIZER_H
 #define MESSAGE_SYNCHRONIZER_H
 
-#include <ros/ros.h>
 #include <vector>
 #include <algorithm>
+#include <functional>
 
 template<typename MessageType>
 class MessageSynchronizer {
@@ -56,21 +56,50 @@ class MessageSynchronizer {
   bool Initialize(const ros::NodeHandle& n, const std::string& topic,
                   double timer_period);
 
- private:
-  bool LoadParameters(const ros::NodeHandle& n);
-  bool RegisterCallbacks(const ros::NodeHandle& n, const std::string& topic,
-                         double timer_period);
 
-  // Callbacks.
-  void AddMessageCallback(const MessageType& msg);
-  void TimerCallback();
+  // Add message.
+  void AddMessage(const MessageType& msg);
+  void GetSorted(std::vector<MessageType>& sorted);
 
   // Member variables.
-  ros::Subscriber subscriber_;
-  ros::Publisher publisher_;
   std::vector<MessageType> buffer_;
-  ros::Timer timer_;
-  std::string name_;
 };
+
+// ------------------------- IMPLEMENTATION ---------------------------------- //
+
+// Constructor/destructor.
+template<typename MessageType>
+MessageSynchronizer<MessageType>::MessageSynchronizer() {}
+
+template<typename MessageType>
+MessageSynchronizer<MessageType>::~MessageSynchronizer() {}
+
+// Message callback.
+template<typename MessageType>
+void MessageSynchronizer<MessageType>::AddMessage(const MessageType& msg) {
+  buffer_.push_back(msg);
+}
+
+template<typename MessageType>
+struct TimeComparitor {
+  bool operator()(const MessageType& msg1, const MessageType& msg2) {
+    return msg1->header.stamp < msg2->header.stamp;
+  }
+};
+
+// Timer callback.
+template<typename MessageType>
+void MessageSynchronizer<MessageType>::GetSorted(std::vector<MessageType>& sorted) {
+  // Sort buffer_ by timestamps.
+  std::sort(buffer_.begin(), buffer_.end(), TimeComparitor<MessageType>());
+
+  // Copy into a new vector.
+  sorted.clear();
+  for (size_t ii = 0; ii < buffer_.size(); ii++)
+    sorted.push_back(buffer_[ii]);
+
+  // Clear buffer_.
+  buffer_.clear();
+}
 
 #endif
