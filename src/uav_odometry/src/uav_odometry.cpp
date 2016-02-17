@@ -36,20 +36,20 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-// Start up a new UAVMapper node.
+// Start up a new UAVOdometry node.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <uav_mapper/uav_mapper.h>
+#include <uav_odometry/uav_odometry.h>
 #include <message_synchronizer/message_synchronizer.h>
 
 // Constructor/destructor.
-UAVMapper::UAVMapper() : initialized_(false) { previous_cloud_.reset(new PointCloud); }
-UAVMapper::~UAVMapper() {}
+UAVOdometry::UAVOdometry() : initialized_(false) { previous_cloud_.reset(new PointCloud); }
+UAVOdometry::~UAVOdometry() {}
 
 // Initialize.
-bool UAVMapper::Initialize(const ros::NodeHandle& n) {
-  name_ = ros::names::append(n.getNamespace(), "uav_mapper");
+bool UAVOdometry::Initialize(const ros::NodeHandle& n) {
+  name_ = ros::names::append(n.getNamespace(), "uav_odometry");
 
   if (!LoadParameters(n)) {
     ROS_ERROR("%s: Failed to load parameters.", name_.c_str());
@@ -65,31 +65,35 @@ bool UAVMapper::Initialize(const ros::NodeHandle& n) {
 }
 
 // Load parameters.
-bool UAVMapper::LoadParameters(const ros::NodeHandle& n) {
+bool UAVOdometry::LoadParameters(const ros::NodeHandle& n) {
+  // Integrated transform.
+  integrated_rotation_ = Eigen::Matrix3d::Identity();
+  integrated_translation_ = Eigen::Vector3d::Zero();
+
   return true;
 }
 
 // Register callbacks.
-bool UAVMapper::RegisterCallbacks(const ros::NodeHandle& n) {
+bool UAVOdometry::RegisterCallbacks(const ros::NodeHandle& n) {
   ros::NodeHandle node(n);
 
   // Subscriber.
   point_cloud_subscriber_ =
     node.subscribe<PointCloud>("/velodyne_points", 10,
-                               &UAVMapper::AddPointCloudCallback, this);
+                               &UAVOdometry::AddPointCloudCallback, this);
 
   // Publishers.
   point_cloud_publisher_ = node.advertise<PointCloud>("robot", 10, false);
   point_cloud_publisher_filtered_ = node.advertise<PointCloud>("filtered", 10, false);
 
   // Timer.
-  timer_ = n.createTimer(ros::Duration(0.25), &UAVMapper::TimerCallback, this);
+  timer_ = n.createTimer(ros::Duration(0.25), &UAVOdometry::TimerCallback, this);
 
   return true;
 }
 
 // Timer callback.
-void UAVMapper::TimerCallback(const ros::TimerEvent& event) {
+void UAVOdometry::TimerCallback(const ros::TimerEvent& event) {
   std::vector<PointCloud::ConstPtr> sorted_clouds;
   synchronizer_.GetSorted(sorted_clouds);
 
@@ -132,12 +136,12 @@ void UAVMapper::TimerCallback(const ros::TimerEvent& event) {
 
 
 // Point cloud callback.
-void UAVMapper::AddPointCloudCallback(const PointCloud::ConstPtr& cloud) {
+void UAVOdometry::AddPointCloudCallback(const PointCloud::ConstPtr& cloud) {
   synchronizer_.AddMessage(cloud);
 }
 
 // Calculate incremental transform.
-void UAVMapper::PointCloudOdometry(const PointCloud::ConstPtr& cloud) {
+void UAVOdometry::PointCloudOdometry(const PointCloud::ConstPtr& cloud) {
   PointCloud::Ptr sor_cloud(new PointCloud);
   PointCloud::Ptr grid_cloud(new PointCloud);
 

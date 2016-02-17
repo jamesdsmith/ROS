@@ -1,8 +1,5 @@
 <launch>
 
-  <param name="sync_duration" value="0.5", type="double" />
-  <param name="data_topic" value="/velodyne_points", type="str" />
-
   <node name="uav_mapper"
         pkg="uav_mapper"
         type="uav_mapper_node"

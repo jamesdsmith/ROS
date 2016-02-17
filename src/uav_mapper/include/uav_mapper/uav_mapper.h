@@ -44,16 +44,12 @@
 #define UAV_MAPPER_H
 
 #include <ros/ros.h>
-#include <message_synchronizer/message_synchronizer.h>
+#include <uav_odometry/uav_odometry.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <pcl/point_types.h>
 #include <pcl_ros/point_cloud.h>
-#include <pcl/registration/gicp.h>
-#include <pcl/filters/voxel_grid.h>
-#include <pcl/filters/statistical_outlier_removal.h>
 #include <Eigen/Dense>
-#include <Eigen/Geometry>
 #include <cmath>
 
 typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
@@ -76,27 +72,9 @@ class UAVMapper {
   void AddPointCloudCallback(const PointCloud::ConstPtr& cloud);
   void TimerCallback(const ros::TimerEvent& event);
 
-  // Communication.
-  MessageSynchronizer<PointCloud::ConstPtr> synchronizer_;
-  ros::Subscriber point_cloud_subscriber_;
-  ros::Publisher point_cloud_publisher_;
-  ros::Publisher point_cloud_publisher_filtered_;
-  tf2_ros::TransformBroadcaster transform_broadcaster_;
-
-  ros::Timer timer_;
-
-  // Integrated transform.
-  Eigen::Matrix3d integrated_rotation_;
-  Eigen::Vector3d integrated_translation_;
-  bool initialized_;
-
-  // Last point cloud.
-  PointCloud::Ptr previous_cloud_;
-
-  // Time.
-  ros::Time stamp_;
-
-  // Name.
+  // Member variables.
+  UAVOdometry odometry_;
+  PointCloud map_;
   std::string name_;
 };
 

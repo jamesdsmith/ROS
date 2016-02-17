@@ -36,71 +36,68 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-// Start up a new message synchronizer.
+// This defines the uav_odometry node.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#ifndef MESSAGE_SYNCHRONIZER_H
-#define MESSAGE_SYNCHRONIZER_H
+#ifndef UAV_ODOMETRY_H
+#define UAV_ODOMETRY_H
 
-#include <vector>
-#include <algorithm>
-#include <functional>
+#include <ros/ros.h>
+#include <message_synchronizer/message_synchronizer.h>
+#include <sensor_msgs/PointCloud2.h>
+#include <tf2_ros/transform_broadcaster.h>
+#include <pcl/point_types.h>
+#include <pcl_ros/point_cloud.h>
+#include <pcl/registration/gicp.h>
+#include <pcl/filters/voxel_grid.h>
+#include <pcl/filters/statistical_outlier_removal.h>
+#include <Eigen/Dense>
+#include <Eigen/Geometry>
+#include <cmath>
 
-// Single message type.
-template<typename MessageType>
-class MessageSynchronizer {
+typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
+
+class UAVOdometry {
  public:
-  explicit MessageSynchronizer();
-  ~MessageSynchronizer();
+  explicit UAVOdometry();
+  ~UAVOdometry();
 
-  bool Initialize(const ros::NodeHandle& n, const std::string& topic,
-                  double timer_period);
+  bool Initialize(const ros::NodeHandle& n);
 
+ private:
+  bool LoadParameters(const ros::NodeHandle& n);
+  bool RegisterCallbacks(const ros::NodeHandle& n);
 
-  // Add message.
-  void AddMessage(const MessageType& msg);
-  void GetSorted(std::vector<MessageType>& sorted);
+  // Helpers.
+  void PointCloudOdometry(const PointCloud::ConstPtr& cloud);
 
-  // Member variables.
-  std::vector<MessageType> buffer_;
+  // Callbacks.
+  void AddPointCloudCallback(const PointCloud::ConstPtr& cloud);
+  void TimerCallback(const ros::TimerEvent& event);
+
+  // Communication.
+  MessageSynchronizer<PointCloud::ConstPtr> synchronizer_;
+  ros::Subscriber point_cloud_subscriber_;
+  ros::Publisher point_cloud_publisher_;
+  ros::Publisher point_cloud_publisher_filtered_;
+  tf2_ros::TransformBroadcaster transform_broadcaster_;
+
+  ros::Timer timer_;
+
+  // Integrated transform.
+  Eigen::Matrix3d integrated_rotation_;
+  Eigen::Vector3d integrated_translation_;
+  bool initialized_;
+
+  // Last point cloud.
+  PointCloud::Ptr previous_cloud_;
+
+  // Time.
+  ros::Time stamp_;
+
+  // Name.
+  std::string name_;
 };
-
-// ------------------------- IMPLEMENTATION ---------------------------------- //
-
-// Constructor/destructor.
-template<typename MessageType>
-MessageSynchronizer<MessageType>::MessageSynchronizer() {}
-
-template<typename MessageType>
-MessageSynchronizer<MessageType>::~MessageSynchronizer() {}
-
-// Message callback.
-template<typename MessageType>
-void MessageSynchronizer<MessageType>::AddMessage(const MessageType& msg) {
-  buffer_.push_back(msg);
-}
-
-template<typename MessageType>
-struct TimeComparitor {
-  bool operator()(const MessageType& msg1, const MessageType& msg2) {
-    return msg1->header.stamp < msg2->header.stamp;
-  }
-};
-
-// Timer callback.
-template<typename MessageType>
-void MessageSynchronizer<MessageType>::GetSorted(std::vector<MessageType>& sorted) {
-  // Sort buffer_ by timestamps.
-  std::sort(buffer_.begin(), buffer_.end(), TimeComparitor<MessageType>());
-
-  // Copy into a new vector.
-  sorted.clear();
-  for (size_t ii = 0; ii < buffer_.size(); ii++)
-    sorted.push_back(buffer_[ii]);
-
-  // Clear buffer_.
-  buffer_.clear();
-}
 
 #endif

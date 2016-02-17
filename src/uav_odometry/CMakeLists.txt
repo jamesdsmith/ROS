@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(uav_mapper)
+project(uav_odometry)
 
 #set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
@@ -12,6 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   geometry_msgs
   pcl_ros
+  tf2_ros
   message_synchronizer
 )
 
@@ -23,6 +24,7 @@ catkin_package(
     sensor_msgs
     geometry_msgs
     pcl_ros
+    tf2_ros
     message_synchronizer
 )
 
