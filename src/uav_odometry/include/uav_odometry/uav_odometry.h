@@ -65,25 +65,23 @@ class UAVOdometry {
 
   bool Initialize(const ros::NodeHandle& n);
 
+  // Update odometry estimate with next point cloud.
+  void UpdateOdometry(const PointCloud::ConstPtr& cloud);
+
+  // Get current pose estimate.
+  Eigen::Matrix3d& GetIntegratedRotation();
+  Eigen::Vector3d& GetIntegratedTranslation();
+
  private:
   bool LoadParameters(const ros::NodeHandle& n);
   bool RegisterCallbacks(const ros::NodeHandle& n);
 
-  // Helpers.
-  void PointCloudOdometry(const PointCloud::ConstPtr& cloud);
-
-  // Callbacks.
-  void AddPointCloudCallback(const PointCloud::ConstPtr& cloud);
-  void TimerCallback(const ros::TimerEvent& event);
+  void RunICP(const PointCloud::ConstPtr& cloud);
 
   // Communication.
-  MessageSynchronizer<PointCloud::ConstPtr> synchronizer_;
-  ros::Subscriber point_cloud_subscriber_;
   ros::Publisher point_cloud_publisher_;
   ros::Publisher point_cloud_publisher_filtered_;
   tf2_ros::TransformBroadcaster transform_broadcaster_;
-
-  ros::Timer timer_;
 
   // Integrated transform.
   Eigen::Matrix3d integrated_rotation_;
@@ -93,7 +91,7 @@ class UAVOdometry {
   // Last point cloud.
   PointCloud::Ptr previous_cloud_;
 
-  // Time.
+  // Time stamp.
   ros::Time stamp_;
 
   // Name.

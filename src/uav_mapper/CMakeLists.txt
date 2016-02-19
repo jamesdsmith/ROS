@@ -12,7 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   geometry_msgs
   pcl_ros
-  message_synchronizer
+  uav_odometry
 )
 
 catkin_package(
@@ -23,7 +23,7 @@ catkin_package(
     sensor_msgs
     geometry_msgs
     pcl_ros
-    message_synchronizer
+    uav_odometry
 )
 
 include_directories(include ${catkin_INCLUDE_DIRS})

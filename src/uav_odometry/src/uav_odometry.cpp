@@ -44,7 +44,8 @@
 #include <message_synchronizer/message_synchronizer.h>
 
 // Constructor/destructor.
-UAVOdometry::UAVOdometry() : initialized_(false) { previous_cloud_.reset(new PointCloud); }
+UAVOdometry::UAVOdometry() :
+  initialized_(false) { previous_cloud_.reset(new PointCloud); }
 UAVOdometry::~UAVOdometry() {}
 
 // Initialize.
@@ -77,71 +78,56 @@ bool UAVOdometry::LoadParameters(const ros::NodeHandle& n) {
 bool UAVOdometry::RegisterCallbacks(const ros::NodeHandle& n) {
   ros::NodeHandle node(n);
 
-  // Subscriber.
-  point_cloud_subscriber_ =
-    node.subscribe<PointCloud>("/velodyne_points", 10,
-                               &UAVOdometry::AddPointCloudCallback, this);
-
   // Publishers.
   point_cloud_publisher_ = node.advertise<PointCloud>("robot", 10, false);
   point_cloud_publisher_filtered_ = node.advertise<PointCloud>("filtered", 10, false);
 
-  // Timer.
-  timer_ = n.createTimer(ros::Duration(0.25), &UAVOdometry::TimerCallback, this);
-
   return true;
 }
 
-// Timer callback.
-void UAVOdometry::TimerCallback(const ros::TimerEvent& event) {
-  std::vector<PointCloud::ConstPtr> sorted_clouds;
-  synchronizer_.GetSorted(sorted_clouds);
+// Getters.
+Eigen::Matrix3d& GetIntegratedRotation() { return integrated_rotation_; }
+Eigen::Vector3d& GetIntegratedTranslation() { return integrated_translation_; }
 
-  for (size_t ii = 0; ii < sorted_clouds.size(); ii++) {
-    PointCloud::ConstPtr cloud = sorted_clouds[ii];
-    stamp_.fromNSec(cloud->header.stamp * 1000);
+// Update odometry estimate with next point cloud.
+void UAVOdometry::UpdateOdometry(const PointCloud::ConstPtr& cloud) {
+  stamp_.fromNSec(cloud->header.stamp * 1000);
 
-    // Get odometry estimate.
-    PointCloudOdometry(cloud);
+  // Get odometry estimate.
+  RunICP(cloud);
 
-    // Send transform.
-    geometry_msgs::TransformStamped stamped;
+  // Send transform.
+  geometry_msgs::TransformStamped stamped;
 
-    Eigen::Quaterniond quat(integrated_rotation_);
-    quat.normalize();
+  Eigen::Quaterniond quat(integrated_rotation_);
+  quat.normalize();
 
-    stamped.transform.rotation.x = quat.x();
-    stamped.transform.rotation.y = quat.y();
-    stamped.transform.rotation.z = quat.z();
-    stamped.transform.rotation.w = quat.w();
-    stamped.transform.translation.x = integrated_translation_(0);
-    stamped.transform.translation.y = integrated_translation_(1);
-    stamped.transform.translation.z = integrated_translation_(2);
+  stamped.transform.rotation.x = quat.x();
+  stamped.transform.rotation.y = quat.y();
+  stamped.transform.rotation.z = quat.z();
+  stamped.transform.rotation.w = quat.w();
+  stamped.transform.translation.x = integrated_translation_(0);
+  stamped.transform.translation.y = integrated_translation_(1);
+  stamped.transform.translation.z = integrated_translation_(2);
 
-    stamped.header.stamp = stamp_;
-    stamped.header.frame_id = "world";
-    stamped.child_frame_id = "robot";
-    transform_broadcaster_.sendTransform(stamped);
+  stamped.header.stamp = stamp_;
+  stamped.header.frame_id = "world";
+  stamped.child_frame_id = "robot";
+  transform_broadcaster_.sendTransform(stamped);
 
-    previous_cloud_->header.stamp = stamp_.toNSec() / 1000;
-    previous_cloud_->header.frame_id = "robot";
-    point_cloud_publisher_filtered_.publish(*previous_cloud_);
+  previous_cloud_->header.stamp = stamp_.toNSec() / 1000;
+  previous_cloud_->header.frame_id = "robot";
+  point_cloud_publisher_filtered_.publish(*previous_cloud_);
 
-    // Send point cloud.
-    PointCloud msg = *cloud;
-    msg.header.frame_id = "robot";
-    point_cloud_publisher_.publish(msg);
-  }
+  // Send point cloud.
+  PointCloud msg = *cloud;
+  msg.header.frame_id = "robot";
+  point_cloud_publisher_.publish(msg);
 }
 
-
-// Point cloud callback.
-void UAVOdometry::AddPointCloudCallback(const PointCloud::ConstPtr& cloud) {
-  synchronizer_.AddMessage(cloud);
-}
 
 // Calculate incremental transform.
-void UAVOdometry::PointCloudOdometry(const PointCloud::ConstPtr& cloud) {
+void UAVOdometry::RunICP(const PointCloud::ConstPtr& cloud) {
   PointCloud::Ptr sor_cloud(new PointCloud);
   PointCloud::Ptr grid_cloud(new PointCloud);
 
@@ -189,4 +175,4 @@ void UAVOdometry::PointCloudOdometry(const PointCloud::ConstPtr& cloud) {
   integrated_translation_ =
     integrated_rotation_ * translation + integrated_translation_;
   integrated_rotation_ = integrated_rotation_ * rotation;
- }
+}

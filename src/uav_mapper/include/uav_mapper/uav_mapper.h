@@ -46,13 +46,14 @@
 #include <ros/ros.h>
 #include <uav_odometry/uav_odometry.h>
 #include <sensor_msgs/PointCloud2.h>
-#include <tf2_ros/transform_broadcaster.h>
 #include <pcl/point_types.h>
+#include <pcl/octree/octree_search.h>
 #include <pcl_ros/point_cloud.h>
 #include <Eigen/Dense>
 #include <cmath>
 
 typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
+typedef pcl::octree::OctreePointCloudSearch<pcl::PointXYZ> Octree;
 
 class UAVMapper {
  public:
@@ -65,16 +66,14 @@ class UAVMapper {
   bool LoadParameters(const ros::NodeHandle& n);
   bool RegisterCallbacks(const ros::NodeHandle& n);
 
-  // Helpers.
-  void PointCloudOdometry(const PointCloud::ConstPtr& cloud);
-
   // Callbacks.
   void AddPointCloudCallback(const PointCloud::ConstPtr& cloud);
   void TimerCallback(const ros::TimerEvent& event);
 
   // Member variables.
   UAVOdometry odometry_;
-  PointCloud map_;
+  PointCloud map_cloud_;
+  Octree map_octree_;
   std::string name_;
 };
 
