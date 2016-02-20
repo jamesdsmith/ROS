@@ -86,8 +86,13 @@ bool UAVOdometry::RegisterCallbacks(const ros::NodeHandle& n) {
 }
 
 // Getters.
-Eigen::Matrix3d& GetIntegratedRotation() { return integrated_rotation_; }
-Eigen::Vector3d& GetIntegratedTranslation() { return integrated_translation_; }
+Eigen::Matrix3d& UAVOdometry::GetIntegratedRotation() {
+  return integrated_rotation_;
+}
+
+Eigen::Vector3d& UAVOdometry::GetIntegratedTranslation() {
+  return integrated_translation_;
+}
 
 // Update odometry estimate with next point cloud.
 void UAVOdometry::UpdateOdometry(const PointCloud::ConstPtr& cloud) {

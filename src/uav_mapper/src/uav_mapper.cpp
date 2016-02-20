@@ -58,6 +58,7 @@ UAVMapper::~UAVMapper() {}
 bool UAVMapper::Initialize(const ros::NodeHandle& n) {
   name_ = ros::names::append(n.getNamespace(), "uav_mapper");
   odometry_.Initialize(n);
+  initialized_ = true;
 
   if (!LoadParameters(n)) {
     ROS_ERROR("%s: Failed to load parameters.", name_.c_str());
@@ -99,6 +100,7 @@ void UAVMapper::TimerCallback(const ros::TimerEvent& event) {
 
   for (size_t ii = 0; ii < sorted_clouds.size(); ii++) {
     const PointCloud::ConstPtr cloud = sorted_clouds[ii];
+    PointCloud::Ptr transformed_cloud(new PointCloud);
 
     // Calculate odometry.
     odometry_.UpdateOdometry(cloud);
@@ -111,11 +113,11 @@ void UAVMapper::TimerCallback(const ros::TimerEvent& event) {
     tf.block(0, 3, 3, 1) = t;
 
     // Transform cloud into world frame.
-    pcl::transformPointCloud(*cloud, *cloud, tf);
+    pcl::transformPointCloud(*cloud, *transformed_cloud, tf);
 
     // Add to the map.
-    for (size_t ii = 0; ii < cloud->points.size(); ii++) {
-      const pcl::PointXYZ point = cloud->points[ii];
+    for (size_t ii = 0; ii < transformed_cloud->points.size(); ii++) {
+      const pcl::PointXYZ point = transformed_cloud->points[ii];
 
       // Add all points to map_cloud_, but only add to octree if voxel is empty.
       if (!map_octree_->isVoxelOccupiedAtPoint(point))

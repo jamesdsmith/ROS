@@ -74,6 +74,11 @@ class UAVMapper {
   UAVOdometry odometry_;
   PointCloud::Ptr map_cloud_;
   Octree::Ptr map_octree_;
+
+  ros::Subscriber point_cloud_subscriber_;
+  ros::Timer timer_;
+  MessageSynchronizer<PointCloud::ConstPtr> synchronizer_;
+  bool initialized_;
   std::string name_;
 };
 

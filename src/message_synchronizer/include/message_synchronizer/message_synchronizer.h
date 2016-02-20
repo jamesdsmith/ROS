@@ -54,10 +54,6 @@ class MessageSynchronizer {
   explicit MessageSynchronizer();
   ~MessageSynchronizer();
 
-  bool Initialize(const ros::NodeHandle& n, const std::string& topic,
-                  double timer_period);
-
-
   // Add message.
   void AddMessage(const MessageType& msg);
   void GetSorted(std::vector<MessageType>& sorted);
