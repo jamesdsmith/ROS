@@ -63,7 +63,7 @@ class UAVMapper {
   bool Initialize(const ros::NodeHandle& n);
 
   // Find nearest neighbors.
-  void NearestNeighbors(const PointCloud& cloud, PointCloud& neighbors);
+  bool NearestNeighbors(const PointCloud::Ptr cloud, PointCloud::Ptr neighbors);
 
   // Add points to map.
   void InsertPoints(const PointCloud& cloud);
@@ -73,7 +73,6 @@ class UAVMapper {
   bool RegisterCallbacks(const ros::NodeHandle& n);
 
   // Member variables.
-  UAVOdometry odometry_;
   PointCloud::Ptr map_cloud_;
   Octree::Ptr map_octree_;
 

@@ -76,12 +76,6 @@ bool UAVOdometry::LoadParameters(const ros::NodeHandle& n) {
 
 // Register callbacks.
 bool UAVOdometry::RegisterCallbacks(const ros::NodeHandle& n) {
-  ros::NodeHandle node(n);
-
-  // Publishers.
-  point_cloud_publisher_ = node.advertise<PointCloud>("robot", 10, false);
-  point_cloud_publisher_filtered_ = node.advertise<PointCloud>("filtered", 10, false);
-
   return true;
 }
 
@@ -104,45 +98,14 @@ void UAVOdometry::SetIntegratedRotation(Eigen::Matrix3d& rotation) {
   integrated_rotation_ = rotation;
 }
 
-void UAVOdometry::setIntegratedTranslation(Eigen::Vector3d& translation) {
+void UAVOdometry::SetIntegratedTranslation(Eigen::Vector3d& translation) {
   integrated_translation_ = translation;
 }
 
 
 // Update odometry estimate with next point cloud.
 void UAVOdometry::UpdateOdometry(const PointCloud::ConstPtr& cloud) {
-  stamp_.fromNSec(cloud->header.stamp * 1000);
-
-  // Get odometry estimate.
   RunICP(cloud);
-
-  // Send transform.
-  geometry_msgs::TransformStamped stamped;
-
-  Eigen::Quaterniond quat(integrated_rotation_);
-  quat.normalize();
-
-  stamped.transform.rotation.x = quat.x();
-  stamped.transform.rotation.y = quat.y();
-  stamped.transform.rotation.z = quat.z();
-  stamped.transform.rotation.w = quat.w();
-  stamped.transform.translation.x = integrated_translation_(0);
-  stamped.transform.translation.y = integrated_translation_(1);
-  stamped.transform.translation.z = integrated_translation_(2);
-
-  stamped.header.stamp = stamp_;
-  stamped.header.frame_id = "world";
-  stamped.child_frame_id = "robot";
-  transform_broadcaster_.sendTransform(stamped);
-
-  previous_cloud_->header.stamp = stamp_.toNSec() / 1000;
-  previous_cloud_->header.frame_id = "robot";
-  point_cloud_publisher_filtered_.publish(*previous_cloud_);
-
-  // Send point cloud.
-  PointCloud msg = *cloud;
-  msg.header.frame_id = "robot";
-  point_cloud_publisher_.publish(msg);
 }
 
 

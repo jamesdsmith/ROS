@@ -77,18 +77,13 @@ class UAVOdometry {
 
   // Reset integrated transform.
   void SetIntegratedRotation(Eigen::Matrix3d& rotation);
-  void setIntegratedTranslation(Eigen::Vector3d& translation);
+  void SetIntegratedTranslation(Eigen::Vector3d& translation);
 
  private:
   bool LoadParameters(const ros::NodeHandle& n);
   bool RegisterCallbacks(const ros::NodeHandle& n);
 
   void RunICP(const PointCloud::ConstPtr& cloud);
-
-  // Communication.
-  ros::Publisher point_cloud_publisher_;
-  ros::Publisher point_cloud_publisher_filtered_;
-  tf2_ros::TransformBroadcaster transform_broadcaster_;
 
   // Integrated transform.
   Eigen::Matrix3d integrated_rotation_;
@@ -97,9 +92,6 @@ class UAVOdometry {
 
   // Last point cloud.
   PointCloud::Ptr previous_cloud_;
-
-  // Time stamp.
-  ros::Time stamp_;
 
   // Name.
   std::string name_;

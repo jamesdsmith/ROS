@@ -59,7 +59,7 @@ typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
 class UAVLocalization {
  public:
   explicit UAVLocalization();
-  ~UAVMapper();
+  ~UAVLocalization();
 
   bool Initialize(const ros::NodeHandle& n);
 
@@ -72,10 +72,15 @@ class UAVLocalization {
   void TimerCallback(const ros::TimerEvent& event);
 
   // Refine localization estimate.
-  void UAVLocalization::RefineTransformation(const PointCloud& map,
-                                             const PointCloud& scan,
-                                             const Eigen::Matrix4d& initial_tf,
-                                             Eigen::Matrix4d& refined_tf) {}
+  void RefineTransformation(const PointCloud::Ptr& map,
+                            const PointCloud::ConstPtr& scan,
+                            const Eigen::Matrix4d& initial_tf,
+                            Eigen::Matrix4d& refined_tf);
+
+  // Publish.
+  void PublishPose();
+  void PublishFullScan(const PointCloud::ConstPtr& cloud);
+  void PublishFilteredScan(const PointCloud::Ptr& cloud);
 
   // Member variables.
   UAVOdometry odometry_;
@@ -83,10 +88,20 @@ class UAVLocalization {
   Eigen::Matrix3d integrated_rotation_;
   Eigen::Vector3d integrated_translation_;
 
-  // Message handling.
+  // Subscribers.
   ros::Subscriber point_cloud_subscriber_;
   ros::Timer timer_;
   MessageSynchronizer<PointCloud::ConstPtr> synchronizer_;
+
+  // Publishers.
+  ros::Publisher scan_publisher_full_;
+  ros::Publisher scan_publisher_filtered_;
+  tf2_ros::TransformBroadcaster transform_broadcaster_;
+
+  // Time stamp.
+  ros::Time stamp_;
+
+  bool first_step_;
   bool initialized_;
   std::string name_;
 };

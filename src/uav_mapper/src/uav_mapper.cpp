@@ -57,8 +57,6 @@ UAVMapper::~UAVMapper() {}
 // Initialize.
 bool UAVMapper::Initialize(const ros::NodeHandle& n) {
   name_ = ros::names::append(n.getNamespace(), "uav_mapper");
-  odometry_.Initialize(n);
-  initialized_ = true;
 
   if (!LoadParameters(n)) {
     ROS_ERROR("%s: Failed to load parameters.", name_.c_str());
@@ -70,6 +68,7 @@ bool UAVMapper::Initialize(const ros::NodeHandle& n) {
     return false;
   }
 
+  initialized_ = true;
   return true;
 }
 
@@ -80,49 +79,39 @@ bool UAVMapper::LoadParameters(const ros::NodeHandle& n) {
 
 // Register callbacks.
 bool UAVMapper::RegisterCallbacks(const ros::NodeHandle& n) {
-  ros::NodeHandle node(n);
-
-  // Subscriber.
-  point_cloud_subscriber_ =
-    node.subscribe<PointCloud>("/velodyne_points", 10,
-                               &UAVMapper::AddPointCloudCallback, this);
-
-  // Timer.
-  timer_ = n.createTimer(ros::Duration(0.25), &UAVMapper::TimerCallback, this);
-
   return true;
 }
 
 // Find nearest neighbors.
-void UAVMapper::NearestNeighbors(const PointCloud& cloud, PointCloud& neighbors) {
-  neighbors.points.clear();
+bool UAVMapper::NearestNeighbors(const PointCloud::Ptr cloud,
+                                 PointCloud::Ptr neighbors) {
+  neighbors->points.clear();
 
   // For each point in input cloud, append nearest neighbor to neighbors.
-  for (size_t ii = 0; ii < cloud.points.size(); ii++) {
+  for (size_t ii = 0; ii < cloud->points.size(); ii++) {
     float nn_distance = -1.0;
     int nn_index = -1;
 
-    map_octree_.approxNearestSearch(cloud.points[ii], nn_index, nn_distance);
-    if (nn_index >= 0)
-      neighbors.push_back(map_data_->points[nn_index]);
+    map_octree_->approxNearestSearch(cloud->points[ii], nn_index, nn_distance);
+    if (nn_index >= 0) {
+      neighbors->push_back(map_cloud_->points[nn_index]);
+    }
   }
+
+  return neighbors->points.size() > 0;
 }
 
 // Add points to map.
 void UAVMapper::InsertPoints(const PointCloud& cloud) {
-  for (size_t ii = 0; ii < cloud->points.size(); ii++) {
-    const pcl::PointXYZ point = cloud->points[ii];
+  for (size_t ii = 0; ii < cloud.points.size(); ii++) {
+    const pcl::PointXYZ point = cloud.points[ii];
 
     // Add all points to map_cloud_, but only add to octree if voxel is empty.
     if (!map_octree_->isVoxelOccupiedAtPoint(point))
       map_octree_->addPointToCloud(point, map_cloud_);
+#if 0
     else
       map_cloud_->push_back(point);
+#endif
   }
-}
-
-
-// Point cloud callback.
-void UAVMapper::AddPointCloudCallback(const PointCloud::ConstPtr& cloud) {
-  synchronizer_.AddMessage(cloud);
 }

@@ -45,7 +45,7 @@
 
 int main(int argc, char** argv) {
   // Generate a new node.
-  ros::init(argc, argv, "uav_mapper");
+  ros::init(argc, argv, "uav_localization");
   ros::NodeHandle n("~");
 
   // Initialize a new UAVLocalization.

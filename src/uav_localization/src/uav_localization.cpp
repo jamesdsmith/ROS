@@ -43,7 +43,7 @@
 #include <uav_localization/uav_localization.h>
 
 // Constructor/destructor.
-UAVLocalization::UAVLocalization() : initialized_(false) {}
+UAVLocalization::UAVLocalization() : initialized_(false), first_step_(true) {}
 UAVLocalization::~UAVLocalization() {}
 
 // Initialize.
@@ -51,8 +51,11 @@ bool UAVLocalization::Initialize(const ros::NodeHandle& n) {
   name_ = ros::names::append(n.getNamespace(), "uav_localization");
   integrated_rotation_ = Eigen::Matrix3d::Identity();
   integrated_translation_ = Eigen::Vector3d::Zero();
-  odometry_.Initialize(n);
-  initialized_ = true;
+
+  if (!odometry_.Initialize(n)) {
+    ROS_ERROR("%s: Failed to initialize UAVOdometry.", name_.c_str());
+    return false;
+  }
 
   if (!LoadParameters(n)) {
     ROS_ERROR("%s: Failed to load parameters.", name_.c_str());
@@ -64,6 +67,7 @@ bool UAVLocalization::Initialize(const ros::NodeHandle& n) {
     return false;
   }
 
+  initialized_ = true;
   return true;
 }
 
@@ -80,6 +84,10 @@ bool UAVLocalization::RegisterCallbacks(const ros::NodeHandle& n) {
   point_cloud_subscriber_ =
     node.subscribe<PointCloud>("/velodyne_points", 10,
                                &UAVLocalization::AddPointCloudCallback, this);
+
+  // Publishers.
+  scan_publisher_full_ = node.advertise<PointCloud>("robot", 10, false);
+  scan_publisher_filtered_ = node.advertise<PointCloud>("filtered", 10, false);
 
   // Timer.
   timer_ = n.createTimer(ros::Duration(0.25), &UAVLocalization::TimerCallback, this);
@@ -109,16 +117,24 @@ void UAVLocalization::TimerCallback(const ros::TimerEvent& event) {
 
     // Transform cloud into world frame.
     Eigen::Matrix4d initial_tf = Eigen::Matrix4d::Identity();
+    Eigen::Matrix4d refined_tf = Eigen::Matrix4d::Identity();
     initial_tf.block(0, 0, 3, 3) = initial_rotation;
     initial_tf.block(0, 3, 3, 1) = initial_translation;
     pcl::transformPointCloud(*filtered_cloud, *transformed_cloud, initial_tf);
 
-    // Grab nearest neighbors in map.
-    mapper_.NearestNeighbors(*transformed_cloud, *neighbors);
+    if (!first_step_) {
+      // Grab nearest neighbors in map.
+      if (!mapper_.NearestNeighbors(transformed_cloud, neighbors)) {
+        ROS_ERROR("%s: UAVMapper could not find nearest neighbors.", name_.c_str());
+        continue;
+      }
 
-    // Refine initial guess.
-    Eigen::Matrix4d refined_tf = Eigen::Matrix4d::Identity();
-    RefineTransformation(*neighbors, *cloud, initial_tf, refined_tf);
+      // Refine initial guess.
+      RefineTransformation(neighbors, cloud, initial_tf, refined_tf);
+    } else {
+      first_step_ = false;
+      refined_tf = initial_tf;
+    }
 
     // Update integrated rotation and translation.
     integrated_rotation_ = refined_tf.block(0, 0, 3, 3);
@@ -131,8 +147,8 @@ void UAVLocalization::TimerCallback(const ros::TimerEvent& event) {
     // Publish transform and point clouds.
     stamp_.fromNSec(cloud->header.stamp * 1000);
     PublishPose();
-    PublishFullScan(*cloud);
-    PublishFilteredScan(*filtered_cloud);
+    PublishFullScan(cloud);
+    PublishFilteredScan(filtered_cloud);
   }
 }
 
@@ -143,8 +159,8 @@ void UAVLocalization::AddPointCloudCallback(const PointCloud::ConstPtr& cloud) {
 }
 
 // Run ICP.
-void UAVLocalization::RefineTransformation(const PointCloud& map,
-                                           const PointCloud& scan,
+void UAVLocalization::RefineTransformation(const PointCloud::Ptr& map,
+                                           const PointCloud::ConstPtr& scan,
                                            const Eigen::Matrix4d& initial_tf,
                                            Eigen::Matrix4d& refined_tf) {
   // Setup.
@@ -159,8 +175,8 @@ void UAVLocalization::RefineTransformation(const PointCloud& map,
 
   // Align.
   PointCloud aligned_cloud;
-  icp.align(aligned_cloud, initial_tf);
-  refined_tf = icp.getFinalTransformation();
+  icp.align(aligned_cloud, initial_tf.cast<float>());
+  refined_tf = icp.getFinalTransformation().cast<double>();
 }
 
 // Publish transform.
@@ -186,13 +202,17 @@ void UAVLocalization::PublishPose() {
 
 
 // Publish full scan.
-void UAVLocalization::PublishFullScan() {
-  
+void UAVLocalization::PublishFullScan(const PointCloud::ConstPtr& cloud) {
+  PointCloud msg = *cloud;
+  msg.header.stamp = stamp_.toNSec() / 1000;
+  msg.header.frame_id = "robot";
+  scan_publisher_full_.publish(msg);
 }
 
 // Publish filtered scan.
-void UAVLocalization::PublishFilteredScan() {
-  previous_cloud_->header.stamp = stamp_.toNSec() / 1000;
-  previous_cloud_->header.frame_id = "robot";
-  point_cloud_publisher_filtered_.publish(*previous_cloud_);
+void UAVLocalization::PublishFilteredScan(const PointCloud::Ptr& cloud) {
+  PointCloud msg = *cloud;
+  msg.header.stamp = stamp_.toNSec() / 1000;
+  msg.header.frame_id = "robot";
+  scan_publisher_filtered_.publish(msg);
 }
