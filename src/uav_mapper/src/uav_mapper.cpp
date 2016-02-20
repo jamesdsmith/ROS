@@ -44,7 +44,14 @@
 #include <message_synchronizer/message_synchronizer.h>
 
 // Constructor/destructor.
-UAVMapper::UAVMapper() : initialized_(false) { previous_cloud_.reset(new PointCloud); }
+UAVMapper::UAVMapper() : initialized_(false) {
+  map_cloud_.reset(new PointCloud);
+  map_octree_.reset(new Octree(0.1));
+
+  // Octree holds references to points in map_cloud_.
+  map_octree_->setInputCloud(map_cloud_);
+}
+
 UAVMapper::~UAVMapper() {}
 
 // Initialize.
@@ -97,17 +104,25 @@ void UAVMapper::TimerCallback(const ros::TimerEvent& event) {
     odometry_.UpdateOdometry(cloud);
 
     // Extract transform.
-    Eigen::Matrix3f rotation = odometry_.GetIntegratedRotation().cast<float>();
-    Eigen::Vector3f translation = odometry_.GetIntegratedTranslation().cast<float>();
+    const Eigen::Matrix3f R = odometry_.GetIntegratedRotation().cast<float>();
+    const Eigen::Vector3f t = odometry_.GetIntegratedTranslation().cast<float>();
     Eigen::Matrix4f tf = Eigen::Matrix4f::Identity();
-    tf.block(0, 0, 3, 3) = rotation;
-    tf.block(0, 3, 3, 1) = translation;
+    tf.block(0, 0, 3, 3) = R;
+    tf.block(0, 3, 3, 1) = t;
 
     // Transform cloud into world frame.
     pcl::transformPointCloud(*cloud, *cloud, tf);
 
     // Add to the map.
-    
+    for (size_t ii = 0; ii < cloud->points.size(); ii++) {
+      const pcl::PointXYZ point = cloud->points[ii];
+
+      // Add all points to map_cloud_, but only add to octree if voxel is empty.
+      if (!map_octree_->isVoxelOccupiedAtPoint(point))
+        map_octree_->addPointToCloud(point, map_cloud_);
+      else
+        map_cloud_->push_back(point);
+    }
   }
 }
 

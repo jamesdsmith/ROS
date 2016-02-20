@@ -72,8 +72,8 @@ class UAVMapper {
 
   // Member variables.
   UAVOdometry odometry_;
-  PointCloud map_cloud_;
-  Octree map_octree_;
+  PointCloud::Ptr map_cloud_;
+  Octree::Ptr map_octree_;
   std::string name_;
 };
 
