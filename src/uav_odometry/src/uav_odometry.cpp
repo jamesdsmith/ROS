@@ -85,7 +85,7 @@ bool UAVOdometry::RegisterCallbacks(const ros::NodeHandle& n) {
   return true;
 }
 
-// Getters.
+// Get integrated transform.
 Eigen::Matrix3d& UAVOdometry::GetIntegratedRotation() {
   return integrated_rotation_;
 }
@@ -93,6 +93,21 @@ Eigen::Matrix3d& UAVOdometry::GetIntegratedRotation() {
 Eigen::Vector3d& UAVOdometry::GetIntegratedTranslation() {
   return integrated_translation_;
 }
+
+// Get previous cloud.
+PointCloud::Ptr UAVOdometry::GetPreviousCloud() {
+  return previous_cloud_;
+}
+
+// Reset integrated transform.
+void UAVOdometry::SetIntegratedRotation(Eigen::Matrix3d& rotation) {
+  integrated_rotation_ = rotation;
+}
+
+void UAVOdometry::setIntegratedTranslation(Eigen::Vector3d& translation) {
+  integrated_translation_ = translation;
+}
+
 
 // Update odometry estimate with next point cloud.
 void UAVOdometry::UpdateOdometry(const PointCloud::ConstPtr& cloud) {

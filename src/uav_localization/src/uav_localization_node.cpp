@@ -36,73 +36,26 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-// This defines the uav_odometry node.
+// This defines the uav_localization node.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#ifndef UAV_ODOMETRY_H
-#define UAV_ODOMETRY_H
-
 #include <ros/ros.h>
-#include <message_synchronizer/message_synchronizer.h>
-#include <sensor_msgs/PointCloud2.h>
-#include <tf2_ros/transform_broadcaster.h>
-#include <pcl/point_types.h>
-#include <pcl_ros/point_cloud.h>
-#include <pcl/registration/gicp.h>
-#include <pcl/filters/voxel_grid.h>
-#include <pcl/filters/statistical_outlier_removal.h>
-#include <Eigen/Dense>
-#include <Eigen/Geometry>
-#include <cmath>
+#include <uav_localization/uav_localization.h>
 
-typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
+int main(int argc, char** argv) {
+  // Generate a new node.
+  ros::init(argc, argv, "uav_mapper");
+  ros::NodeHandle n("~");
 
-class UAVOdometry {
- public:
-  explicit UAVOdometry();
-  ~UAVOdometry();
+  // Initialize a new UAVLocalization.
+  UAVLocalization localization;
+  if (!localization.Initialize(n)) {
+    ROS_ERROR("%s: Failed to initialize UAVLocalization.",
+              ros::this_node::getName().c_str());
+    return EXIT_FAILURE;
+  }
 
-  bool Initialize(const ros::NodeHandle& n);
-
-  // Update odometry estimate with next point cloud.
-  void UpdateOdometry(const PointCloud::ConstPtr& cloud);
-
-  // Get current pose estimate.
-  Eigen::Matrix3d& GetIntegratedRotation();
-  Eigen::Vector3d& GetIntegratedTranslation();
-
-  // Get previous cloud.
-  PointCloud::Ptr GetPreviousCloud();
-
-  // Reset integrated transform.
-  void SetIntegratedRotation(Eigen::Matrix3d& rotation);
-  void setIntegratedTranslation(Eigen::Vector3d& translation);
-
- private:
-  bool LoadParameters(const ros::NodeHandle& n);
-  bool RegisterCallbacks(const ros::NodeHandle& n);
-
-  void RunICP(const PointCloud::ConstPtr& cloud);
-
-  // Communication.
-  ros::Publisher point_cloud_publisher_;
-  ros::Publisher point_cloud_publisher_filtered_;
-  tf2_ros::TransformBroadcaster transform_broadcaster_;
-
-  // Integrated transform.
-  Eigen::Matrix3d integrated_rotation_;
-  Eigen::Vector3d integrated_translation_;
-  bool initialized_;
-
-  // Last point cloud.
-  PointCloud::Ptr previous_cloud_;
-
-  // Time stamp.
-  ros::Time stamp_;
-
-  // Name.
-  std::string name_;
-};
-
-#endif
+  ros::spin();
+  return EXIT_SUCCESS;
+}

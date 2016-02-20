@@ -93,38 +93,31 @@ bool UAVMapper::RegisterCallbacks(const ros::NodeHandle& n) {
   return true;
 }
 
-// Timer callback.
-void UAVMapper::TimerCallback(const ros::TimerEvent& event) {
-  std::vector<PointCloud::ConstPtr> sorted_clouds;
-  synchronizer_.GetSorted(sorted_clouds);
+// Find nearest neighbors.
+void UAVMapper::NearestNeighbors(const PointCloud& cloud, PointCloud& neighbors) {
+  neighbors.points.clear();
 
-  for (size_t ii = 0; ii < sorted_clouds.size(); ii++) {
-    const PointCloud::ConstPtr cloud = sorted_clouds[ii];
-    PointCloud::Ptr transformed_cloud(new PointCloud);
+  // For each point in input cloud, append nearest neighbor to neighbors.
+  for (size_t ii = 0; ii < cloud.points.size(); ii++) {
+    float nn_distance = -1.0;
+    int nn_index = -1;
 
-    // Calculate odometry.
-    odometry_.UpdateOdometry(cloud);
+    map_octree_.approxNearestSearch(cloud.points[ii], nn_index, nn_distance);
+    if (nn_index >= 0)
+      neighbors.push_back(map_data_->points[nn_index]);
+  }
+}
 
-    // Extract transform.
-    const Eigen::Matrix3f R = odometry_.GetIntegratedRotation().cast<float>();
-    const Eigen::Vector3f t = odometry_.GetIntegratedTranslation().cast<float>();
-    Eigen::Matrix4f tf = Eigen::Matrix4f::Identity();
-    tf.block(0, 0, 3, 3) = R;
-    tf.block(0, 3, 3, 1) = t;
+// Add points to map.
+void UAVMapper::InsertPoints(const PointCloud& cloud) {
+  for (size_t ii = 0; ii < cloud->points.size(); ii++) {
+    const pcl::PointXYZ point = cloud->points[ii];
 
-    // Transform cloud into world frame.
-    pcl::transformPointCloud(*cloud, *transformed_cloud, tf);
-
-    // Add to the map.
-    for (size_t ii = 0; ii < transformed_cloud->points.size(); ii++) {
-      const pcl::PointXYZ point = transformed_cloud->points[ii];
-
-      // Add all points to map_cloud_, but only add to octree if voxel is empty.
-      if (!map_octree_->isVoxelOccupiedAtPoint(point))
-        map_octree_->addPointToCloud(point, map_cloud_);
-      else
-        map_cloud_->push_back(point);
-    }
+    // Add all points to map_cloud_, but only add to octree if voxel is empty.
+    if (!map_octree_->isVoxelOccupiedAtPoint(point))
+      map_octree_->addPointToCloud(point, map_cloud_);
+    else
+      map_cloud_->push_back(point);
   }
 }
 

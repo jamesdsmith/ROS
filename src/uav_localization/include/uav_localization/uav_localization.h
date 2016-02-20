@@ -36,72 +36,58 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-// This defines the uav_odometry node.
+// This defines the uav_localization node.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#ifndef UAV_ODOMETRY_H
-#define UAV_ODOMETRY_H
+#ifndef UAV_LOCALIZATION_H
+#define UAV_LOCALIZATION_H
 
 #include <ros/ros.h>
 #include <message_synchronizer/message_synchronizer.h>
+#include <uav_odometry/uav_odometry.h>
+#include <uav_mapper/uav_mapper.h>
 #include <sensor_msgs/PointCloud2.h>
-#include <tf2_ros/transform_broadcaster.h>
 #include <pcl/point_types.h>
+#include <pcl/octree/octree_search.h>
 #include <pcl_ros/point_cloud.h>
-#include <pcl/registration/gicp.h>
-#include <pcl/filters/voxel_grid.h>
-#include <pcl/filters/statistical_outlier_removal.h>
 #include <Eigen/Dense>
-#include <Eigen/Geometry>
 #include <cmath>
 
 typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
 
-class UAVOdometry {
+class UAVLocalization {
  public:
-  explicit UAVOdometry();
-  ~UAVOdometry();
+  explicit UAVLocalization();
+  ~UAVMapper();
 
   bool Initialize(const ros::NodeHandle& n);
-
-  // Update odometry estimate with next point cloud.
-  void UpdateOdometry(const PointCloud::ConstPtr& cloud);
-
-  // Get current pose estimate.
-  Eigen::Matrix3d& GetIntegratedRotation();
-  Eigen::Vector3d& GetIntegratedTranslation();
-
-  // Get previous cloud.
-  PointCloud::Ptr GetPreviousCloud();
-
-  // Reset integrated transform.
-  void SetIntegratedRotation(Eigen::Matrix3d& rotation);
-  void setIntegratedTranslation(Eigen::Vector3d& translation);
 
  private:
   bool LoadParameters(const ros::NodeHandle& n);
   bool RegisterCallbacks(const ros::NodeHandle& n);
 
-  void RunICP(const PointCloud::ConstPtr& cloud);
+  // Callbacks.
+  void AddPointCloudCallback(const PointCloud::ConstPtr& cloud);
+  void TimerCallback(const ros::TimerEvent& event);
 
-  // Communication.
-  ros::Publisher point_cloud_publisher_;
-  ros::Publisher point_cloud_publisher_filtered_;
-  tf2_ros::TransformBroadcaster transform_broadcaster_;
+  // Refine localization estimate.
+  void UAVLocalization::RefineTransformation(const PointCloud& map,
+                                             const PointCloud& scan,
+                                             const Eigen::Matrix4d& initial_tf,
+                                             Eigen::Matrix4d& refined_tf) {}
 
-  // Integrated transform.
+  // Member variables.
+  UAVOdometry odometry_;
+  UAVMapper mapper_;
   Eigen::Matrix3d integrated_rotation_;
   Eigen::Vector3d integrated_translation_;
+
+  // Message handling.
+  ros::Subscriber point_cloud_subscriber_;
+  ros::Timer timer_;
+  MessageSynchronizer<PointCloud::ConstPtr> synchronizer_;
   bool initialized_;
-
-  // Last point cloud.
-  PointCloud::Ptr previous_cloud_;
-
-  // Time stamp.
-  ros::Time stamp_;
-
-  // Name.
   std::string name_;
 };
 
