@@ -47,9 +47,9 @@ int main(int argc, char** argv) {
   ros::init(argc, argv, "mapper_test");
   ros::NodeHandle n("~");
 
-  EmptyPackage ep;
+  MapperTest mapper;
 
-  if (!ep.Initialize(n)) {
+  if (!mapper.Initialize(n)) {
     ROS_ERROR("%s: Failed to initialize mapper test.",
               ros::this_node::getName().c_str());
     return EXIT_FAILURE;

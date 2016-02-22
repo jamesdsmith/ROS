@@ -44,19 +44,26 @@
 #define __MAPPER_TEST_H__
 
 #include <ros/ros.h>
+#include "guidance/multi_image.h"
+#include <geometry_msgs/TransformStamped.h>
 
 class MapperTest {
- public:
+public:
   explicit MapperTest();
   ~MapperTest();
 
   bool Initialize(const ros::NodeHandle& n);
 
- private:
+private:
   bool LoadParameters(const ros::NodeHandle& n);
   bool RegisterCallbacks(const ros::NodeHandle& n);
+  void DepthImageCallback(const guidance::multi_image::ConstPtr& msg);
+  void IMUCallback(const geometry_msgs::TransformStamped::ConstPtr& msg);
 
   std::string name_;
+  ros::Subscriber depth_sub_;
+  ros::Subscriber imu_sub_;
+  ros::Publisher cloud_pub_;
 };
 
 #endif
