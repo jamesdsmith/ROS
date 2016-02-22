@@ -104,24 +104,18 @@ void UAVLocalization::TimerCallback(const ros::TimerEvent& event) {
 
   for (size_t ii = 0; ii < sorted_clouds.size(); ii++) {
     const PointCloud::ConstPtr cloud = sorted_clouds[ii];
-    PointCloud::Ptr transformed_cloud(new PointCloud);
     PointCloud::Ptr neighbors(new PointCloud);
+    PointCloud::Ptr transformed_cloud(new PointCloud);
 
     // Calculate odometry.
-    //    odometry_.SetIntegratedRotation(id_r);
-    //    odometry_.SetIntegratedTranslation(id_t);
+    odometry_.SetIntegratedRotation(refined_rotation_);
+    odometry_.SetIntegratedTranslation(refined_translation_);
     odometry_.UpdateOdometry(cloud);
     PointCloud::Ptr filtered_cloud = odometry_.GetPreviousCloud();
 
     // Extract initial transform and update odometry estimate.
     const Eigen::Matrix3d initial_rotation = odometry_.GetIntegratedRotation();
     const Eigen::Vector3d initial_translation = odometry_.GetIntegratedTranslation();
-    //    odometry_translation_ =
-    //      odometry_rotation_ * initial_translation + odometry_translation_;
-    //    odometry_rotation_ = odometry_rotation_ * initial_rotation;
-    //    refined_translation_ =
-    //      refined_rotation_ * initial_translation + refined_translation_;
-    //    refined_rotation_ = refined_rotation_ * initial_rotation;
 
     // Transform cloud into world frame.
     Eigen::Matrix4d initial_tf = Eigen::Matrix4d::Identity();
@@ -138,7 +132,7 @@ void UAVLocalization::TimerCallback(const ros::TimerEvent& event) {
       }
 
       // Refine initial guess.
-      RefineTransformation(neighbors, filtered_cloud, initial_tf, refined_tf);
+      RefineTransformation(neighbors, transformed_cloud, initial_tf, refined_tf);
     } else {
       first_step_ = false;
       refined_tf = initial_tf;
@@ -169,12 +163,12 @@ void UAVLocalization::AddPointCloudCallback(const PointCloud::ConstPtr& cloud) {
 
 // Run ICP.
 void UAVLocalization::RefineTransformation(const PointCloud::Ptr& map,
-                                           const PointCloud::ConstPtr& scan,
+                                           const PointCloud::Ptr& transformed_scan,
                                            const Eigen::Matrix4d& initial_tf,
                                            Eigen::Matrix4d& refined_tf) {
   // Setup.
   pcl::GeneralizedIterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp;
-  icp.setInputSource(scan);
+  icp.setInputSource(transformed_scan);
   icp.setInputTarget(map);
   icp.setMaxCorrespondenceDistance(0.5);
   icp.setMaximumIterations(10);
@@ -184,8 +178,8 @@ void UAVLocalization::RefineTransformation(const PointCloud::Ptr& map,
 
   // Align.
   PointCloud aligned_scan;
-  icp.align(aligned_scan, initial_tf.cast<float>());
-  refined_tf = icp.getFinalTransformation().cast<double>();
+  icp.align(aligned_scan);
+  refined_tf = icp.getFinalTransformation().cast<double>() * initial_tf;
 }
 
 // Publish refimed transform.
@@ -229,6 +223,6 @@ void UAVLocalization::PublishFilteredScan(const PointCloud::Ptr& cloud) {
 
   PointCloud msg = *cloud;
   msg.header.stamp = stamp_.toNSec() / 1000;
-  msg.header.frame_id = "odometry";
+  msg.header.frame_id = "localization";
   scan_publisher_filtered_.publish(msg);
 }

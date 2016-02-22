@@ -44,8 +44,11 @@
 #include <message_synchronizer/message_synchronizer.h>
 
 // Constructor/destructor.
-UAVOdometry::UAVOdometry() :
-  initialized_(false) { previous_cloud_.reset(new PointCloud); }
+UAVOdometry::UAVOdometry() : initialized_(false) {
+  previous_cloud_.reset(new PointCloud);
+  aligned_cloud_.reset(new PointCloud);
+}
+
 UAVOdometry::~UAVOdometry() {}
 
 // Initialize.
@@ -91,6 +94,10 @@ Eigen::Vector3d& UAVOdometry::GetIntegratedTranslation() {
 // Get previous cloud.
 PointCloud::Ptr UAVOdometry::GetPreviousCloud() {
   return previous_cloud_;
+}
+
+PointCloud::Ptr UAVOdometry::GetAlignedCloud() {
+  return aligned_cloud_;
 }
 
 // Reset integrated transform.
@@ -144,8 +151,7 @@ void UAVOdometry::RunICP(const PointCloud::ConstPtr& cloud) {
   icp.setRANSACOutlierRejectionThreshold(0.5);
 
   // Align.
-  PointCloud aligned_cloud;
-  icp.align(aligned_cloud);
+  icp.align(*aligned_cloud_);
 
   // Update pointer to last point cloud.
   pcl::copyPointCloud(*sor_cloud, *previous_cloud_);

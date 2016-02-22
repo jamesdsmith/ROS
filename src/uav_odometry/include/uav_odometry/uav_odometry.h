@@ -74,6 +74,7 @@ class UAVOdometry {
 
   // Get previous cloud.
   PointCloud::Ptr GetPreviousCloud();
+  PointCloud::Ptr GetAlignedCloud();
 
   // Reset integrated transform.
   void SetIntegratedRotation(Eigen::Matrix3d& rotation);
@@ -92,6 +93,7 @@ class UAVOdometry {
 
   // Last point cloud.
   PointCloud::Ptr previous_cloud_;
+  PointCloud::Ptr aligned_cloud_;
 
   // Name.
   std::string name_;

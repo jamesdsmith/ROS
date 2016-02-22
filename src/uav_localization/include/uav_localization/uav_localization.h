@@ -73,7 +73,7 @@ class UAVLocalization {
 
   // Refine localization estimate.
   void RefineTransformation(const PointCloud::Ptr& map,
-                            const PointCloud::ConstPtr& scan,
+                            const PointCloud::Ptr& transformed_scan,
                             const Eigen::Matrix4d& initial_tf,
                             Eigen::Matrix4d& refined_tf);
 
