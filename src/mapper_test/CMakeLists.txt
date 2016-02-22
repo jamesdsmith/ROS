@@ -9,9 +9,11 @@ endif()
 
 find_package(catkin REQUIRED COMPONENTS
   roscpp
+  cv_bridge
   sensor_msgs
   geometry_msgs
   pcl_ros
+  OpenCV REQUIRED
 )
 
 catkin_package(
@@ -24,7 +26,12 @@ catkin_package(
     pcl_ros
 )
 
-include_directories(include ${catkin_INCLUDE_DIRS})
+include_directories(
+  include
+  ${catkin_INCLUDE_DIRS}
+  ${OpenCV_INCLUDE_DIRS}
+)
+
 link_directories(
   ${catkin_LIBRARY_DIRS}
 )
@@ -50,4 +57,7 @@ add_executable(${PROJECT_NAME}_node src/${PROJECT_NAME}_node.cpp)
 target_link_libraries(${PROJECT_NAME}_node
   ${PROJECT_NAME}
   ${catkin_LIBRARIES}
+  ${OpenCV_LIBRARIES}
 )
+
+set(CMAKE_CXX_FLAGS "-std=c++0x ${CMAKE_CXX_FLAGS}")
