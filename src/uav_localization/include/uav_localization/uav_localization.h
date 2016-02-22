@@ -78,15 +78,17 @@ class UAVLocalization {
                             Eigen::Matrix4d& refined_tf);
 
   // Publish.
-  void PublishPose();
+  void PublishPose(const Eigen::Matrix3d& rotation,
+                   const Eigen::Vector3d& translation,
+                   const std::string& child_frame_id);
   void PublishFullScan(const PointCloud::ConstPtr& cloud);
   void PublishFilteredScan(const PointCloud::Ptr& cloud);
 
   // Member variables.
   UAVOdometry odometry_;
   UAVMapper mapper_;
-  Eigen::Matrix3d integrated_rotation_;
-  Eigen::Vector3d integrated_translation_;
+  Eigen::Matrix3d refined_rotation_, odometry_rotation_;
+  Eigen::Vector3d refined_translation_, odometry_translation_;
 
   // Subscribers.
   ros::Subscriber point_cloud_subscriber_;
