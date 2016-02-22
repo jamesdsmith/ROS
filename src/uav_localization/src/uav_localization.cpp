@@ -82,7 +82,7 @@ bool UAVLocalization::RegisterCallbacks(const ros::NodeHandle& n) {
 
   // Subscriber.
   point_cloud_subscriber_ =
-    node.subscribe<PointCloud>("/velodyne_points", 10,
+    node.subscribe<PointCloud>("/velodyne_points", 20,
                                &UAVLocalization::AddPointCloudCallback, this);
 
   // Publishers.
@@ -90,7 +90,7 @@ bool UAVLocalization::RegisterCallbacks(const ros::NodeHandle& n) {
   scan_publisher_filtered_ = node.advertise<PointCloud>("filtered", 10, false);
 
   // Timer.
-  timer_ = n.createTimer(ros::Duration(0.25), &UAVLocalization::TimerCallback, this);
+  timer_ = n.createTimer(ros::Duration(0.1), &UAVLocalization::TimerCallback, this);
 
   return true;
 }
@@ -130,7 +130,7 @@ void UAVLocalization::TimerCallback(const ros::TimerEvent& event) {
       }
 
       // Refine initial guess.
-      RefineTransformation(neighbors, cloud, initial_tf, refined_tf);
+      RefineTransformation(neighbors, filtered_cloud, initial_tf, refined_tf);
     } else {
       first_step_ = false;
       refined_tf = initial_tf;
