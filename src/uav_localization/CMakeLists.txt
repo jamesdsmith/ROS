@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(uav_mapper)
+project(uav_localization)
 
 #set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
@@ -13,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   pcl_ros
   uav_odometry
+  uav_mapper
 )
 
 catkin_package(
@@ -24,6 +25,7 @@ catkin_package(
     geometry_msgs
     pcl_ros
     uav_odometry
+    uav_mapper
 )
 
 include_directories(include ${catkin_INCLUDE_DIRS})

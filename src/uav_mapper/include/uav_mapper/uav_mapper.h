@@ -44,18 +44,16 @@
 #define UAV_MAPPER_H
 
 #include <ros/ros.h>
+#include <uav_odometry/uav_odometry.h>
 #include <sensor_msgs/PointCloud2.h>
-#include <tf2_ros/transform_broadcaster.h>
 #include <pcl/point_types.h>
+#include <pcl/octree/octree_search.h>
 #include <pcl_ros/point_cloud.h>
-#include <pcl/registration/gicp.h>
-#include <pcl/filters/voxel_grid.h>
-#include <pcl/filters/statistical_outlier_removal.h>
 #include <Eigen/Dense>
-#include <Eigen/Geometry>
 #include <cmath>
 
 typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
+typedef pcl::octree::OctreePointCloudSearch<pcl::PointXYZ> Octree;
 
 class UAVMapper {
  public:
@@ -64,32 +62,21 @@ class UAVMapper {
 
   bool Initialize(const ros::NodeHandle& n);
 
+  // Find nearest neighbors.
+  bool NearestNeighbors(const PointCloud::Ptr cloud, PointCloud::Ptr neighbors);
+
+  // Add points to map.
+  void InsertPoints(const PointCloud& cloud);
+
  private:
   bool LoadParameters(const ros::NodeHandle& n);
   bool RegisterCallbacks(const ros::NodeHandle& n);
 
-  // Helpers.
-  Eigen::Matrix4f PointCloudOdometry(const PointCloud::ConstPtr& cloud);
+  // Member variables.
+  PointCloud::Ptr map_cloud_;
+  Octree::Ptr map_octree_;
 
-  // Callbacks.
-  void AddPointCloudCallback(const PointCloud::ConstPtr& cloud);
-
-  // Communication.
-  ros::Subscriber point_cloud_subscriber_;
-  ros::Publisher point_cloud_publisher_;
-  ros::Publisher point_cloud_publisher_filtered_;
-  ros::Publisher point_cloud_publisher_aligned_;
-
-  tf2_ros::TransformBroadcaster transform_broadcaster_;
-
-  // Integrated transform.
-  Eigen::Quaterniond integrated_rotation_;
-  Eigen::Vector3d integrated_translation_;
-
-  // Last point cloud.
-  PointCloud::Ptr previous_cloud_;
-
-  // Name.
+  bool initialized_;
   std::string name_;
 };
 

@@ -36,53 +36,26 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-// Start up a new message synchronizer.
+// This defines the uav_localization node.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <message_synchronizer/message_synchronizer.h>
+#include <ros/ros.h>
+#include <uav_localization/uav_localization.h>
 
-// Constructor/destructor.
-template<typename MessageType>
-MessageSynchronizer<MessageType>::MessageSynchronizer() {}
+int main(int argc, char** argv) {
+  // Generate a new node.
+  ros::init(argc, argv, "uav_localization");
+  ros::NodeHandle n("~");
 
-template<typename MessageType>
-MessageSynchronizer<MessageType>::~MessageSynchronizer() {}
-
-// Initialize.
-template<typename MessageType>
-bool MessageSynchronizer<MessageType>::Initialize(const ros::NodeHandle& n) {
-  name_ = ros::names::append(n.getNamespace(), "message_synchronizer");
-
-  if (!LoadParameters(n)) {
-    ROS_ERROR("%s: Failed to load parameters.", name_.c_str());
-    return false;
+  // Initialize a new UAVLocalization.
+  UAVLocalization localization;
+  if (!localization.Initialize(n)) {
+    ROS_ERROR("%s: Failed to initialize UAVLocalization.",
+              ros::this_node::getName().c_str());
+    return EXIT_FAILURE;
   }
 
-  if (!RegisterCallbacks(n)) {
-    ROS_ERROR("%s: Failed to register callbacks.", name_.c_str());
-    return false;
-  }
-
-  return true;
-}
-
-// Load parameters.
-template<typename MessageType>
-bool MessageSynchronizer<MessageType>::LoadParameters(const ros::NodeHandle& n) {
-  return true;
-}
-
-// Register callback functions.
-template<typename MessageType>
-bool MessageSynchronizer<MessageType>::RegisterCallbacks(const ros::NodeHandle& n) {
-  ros::NodeHandle node(n);
-
-  subscriber_ = node.subscribe<PointCloud>("/velodyne_points", 100,
-                                           &UAVMapper::AddPointCloudCallback, this);
-  point_cloud_publisher_ = node.advertise<PointCloud>("robot", 10, false);
-  point_cloud_publisher_filtered_ = node.advertise<PointCloud>("filtered", 10, false);
-  point_cloud_publisher_aligned_ = node.advertise<PointCloud>("aligned", 10, false);
-
-  return true;
+  ros::spin();
+  return EXIT_SUCCESS;
 }

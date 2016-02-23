@@ -1,8 +1,0 @@
-<launch> 
-  <node name="message_synchronizer"
-        pkg="message_synchronizer"
-        type="message_synchronizer_node"
-        output="screen">
-  </node>
-
-</launch>

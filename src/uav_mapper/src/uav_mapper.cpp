@@ -41,16 +41,22 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <uav_mapper/uav_mapper.h>
+#include <message_synchronizer/message_synchronizer.h>
 
 // Constructor/destructor.
+UAVMapper::UAVMapper() : initialized_(false) {
+  map_cloud_.reset(new PointCloud);
+  map_octree_.reset(new Octree(0.1));
+
+  // Octree holds references to points in map_cloud_.
+  map_octree_->setInputCloud(map_cloud_);
+}
+
 UAVMapper::~UAVMapper() {}
-UAVMapper::UAVMapper() {}
 
 // Initialize.
 bool UAVMapper::Initialize(const ros::NodeHandle& n) {
   name_ = ros::names::append(n.getNamespace(), "uav_mapper");
-  integrated_rotation_.setIdentity();
-  integrated_translation_ = Eigen::Vector3d::Zero();
 
   if (!LoadParameters(n)) {
     ROS_ERROR("%s: Failed to load parameters.", name_.c_str());
@@ -62,102 +68,50 @@ bool UAVMapper::Initialize(const ros::NodeHandle& n) {
     return false;
   }
 
+  initialized_ = true;
   return true;
 }
 
 // Load parameters.
-bool UAVMapper::LoadParameters(const ros::NodeHandle& n) { return true; }
-
-// Register callbacks.
-bool UAVMapper::RegisterCallbacks(const ros::NodeHandle& n) {
-  ros::NodeHandle node(n);
-
-  point_cloud_subscriber_ =
-    node.subscribe<PointCloud>("/velodyne_points", 100,
-                   &UAVMapper::AddPointCloudCallback, this);
-  point_cloud_publisher_ = node.advertise<PointCloud>("robot", 10, false);
-  point_cloud_publisher_filtered_ = node.advertise<PointCloud>("filtered", 10, false);
-  point_cloud_publisher_aligned_ = node.advertise<PointCloud>("aligned", 10, false);
-
+bool UAVMapper::LoadParameters(const ros::NodeHandle& n) {
   return true;
 }
 
-// Point cloud callback.
-void UAVMapper::AddPointCloudCallback(const PointCloud::ConstPtr& cloud) {
-  // Get odometry estimate.
-  PointCloudOdometry(cloud);
-
-  // Send transform.
-  geometry_msgs::TransformStamped stamped;
-
-  stamped.transform.rotation.x = integrated_rotation_.x();
-  stamped.transform.rotation.y = integrated_rotation_.y();
-  stamped.transform.rotation.z = integrated_rotation_.z();
-  stamped.transform.rotation.w = integrated_rotation_.w();
-  stamped.transform.translation.x = integrated_translation_(0);
-  stamped.transform.translation.y = integrated_translation_(1);
-  stamped.transform.translation.z = integrated_translation_(2);
-
-  stamped.header.stamp.fromNSec(cloud->header.stamp * 1000);
-  stamped.header.frame_id = "world";
-  stamped.child_frame_id = "robot";
-  transform_broadcaster_.sendTransform(stamped);
-
-  // Send point cloud.
-  PointCloud msg = *cloud;
-  msg.header.frame_id = "robot";
-  point_cloud_publisher_.publish(msg);
+// Register callbacks.
+bool UAVMapper::RegisterCallbacks(const ros::NodeHandle& n) {
+  return true;
 }
 
-// Calculate incremental transform.
-Eigen::Matrix4f UAVMapper::PointCloudOdometry(const PointCloud::ConstPtr& cloud) {
-  PointCloud::Ptr sor_cloud(new PointCloud);
-  PointCloud::Ptr grid_cloud(new PointCloud);
+// Find nearest neighbors.
+bool UAVMapper::NearestNeighbors(const PointCloud::Ptr cloud,
+                                 PointCloud::Ptr neighbors) {
+  neighbors->points.clear();
 
-  // Voxel grid filter.
-  pcl::VoxelGrid<pcl::PointXYZ> grid_filter;
-  grid_filter.setInputCloud(cloud);
-  grid_filter.setLeafSize(0.75, 0.75, 0.75);
-  grid_filter.filter(*grid_cloud);
+  // For each point in input cloud, append nearest neighbor to neighbors.
+  for (size_t ii = 0; ii < cloud->points.size(); ii++) {
+    float nn_distance = -1.0;
+    int nn_index = -1;
 
-  // Statistical outlier removal.
-  pcl::StatisticalOutlierRemoval<pcl::PointXYZ> sor_filter;
-  sor_filter.setInputCloud(grid_cloud);
-  sor_filter.setMeanK(30);
-  sor_filter.setStddevMulThresh(0.3);
-  sor_filter.filter(*sor_cloud);
-
-  // Handle base case.
-  if (!previous_cloud_) {
-    previous_cloud_ = sor_cloud;
+    map_octree_->approxNearestSearch(cloud->points[ii], nn_index, nn_distance);
+    if (nn_index >= 0) {
+      neighbors->push_back(map_cloud_->points[nn_index]);
+    }
   }
 
-  // Setup.
-  pcl::GeneralizedIterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp;
-  icp.setInputSource(sor_cloud);
-  icp.setInputTarget(previous_cloud_);
-  icp.setMaxCorrespondenceDistance(1.0);
-  icp.setMaximumIterations(10);
-  icp.setTransformationEpsilon(1e-8);
-  icp.setRANSACOutlierRejectionThreshold(0.25);
+  return neighbors->points.size() > 0;
+}
 
-  // Align.
-  PointCloud aligned_cloud;
-  icp.align(aligned_cloud);
+// Add points to map.
+void UAVMapper::InsertPoints(const PointCloud& cloud) {
+  for (size_t ii = 0; ii < cloud.points.size(); ii++) {
+    const pcl::PointXYZ point = cloud.points[ii];
 
-  sor_cloud->header.frame_id = "robot";
-  aligned_cloud.header.frame_id = "robot";
-  point_cloud_publisher_filtered_.publish(sor_cloud);
-  point_cloud_publisher_aligned_.publish(aligned_cloud);
-
-  // Update pointer to last point cloud.
-  previous_cloud_ = sor_cloud;
-
-  // Get transform.
-  Eigen::Matrix4f pose = icp.getFinalTransformation();
-  Eigen::Matrix3d rotation = pose.block(0, 0, 3, 3).cast<double>();
-  Eigen::Vector3d translation = pose.block(0, 3, 3, 1).cast<double>();
-
-  integrated_rotation_ = rotation * integrated_rotation_;
-  integrated_translation_ = rotation * integrated_translation_ + translation;
+    // Add all points to map_cloud_, but only add to octree if voxel is empty.
+    if (!map_octree_->isVoxelOccupiedAtPoint(point))
+      map_octree_->addPointToCloud(point, map_cloud_);
+#if 0
+    else
+      map_cloud_->push_back(point);
+#endif
+  }
 }
