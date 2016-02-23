@@ -49,6 +49,7 @@
 #include <opencv/cv.h>
 #include <pcl/point_types.h>
 #include <pcl_ros/point_cloud.h>
+#include "path_planning/mapper.h"
 
 // Constructor/destructor.
 MapperTest::MapperTest() {}
@@ -106,6 +107,7 @@ void MapperTest::DepthImageCallback(const guidance::multi_image::ConstPtr& msg) 
     cv_ptr->image.convertTo(depth8, CV_8UC1);
     
     // Project depth8 using a path::Mapper and add to cloud
+    path::Mapper mapper;
   }
 
   cloud_pub_.publish(cloud.makeShared());

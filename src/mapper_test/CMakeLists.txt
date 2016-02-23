@@ -14,6 +14,8 @@ find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   pcl_ros
   OpenCV REQUIRED
+  guidance
+  path_planning
 )
 
 catkin_package(
@@ -30,6 +32,7 @@ include_directories(
   include
   ${catkin_INCLUDE_DIRS}
   ${OpenCV_INCLUDE_DIRS}
+  ${path_planning_INCLUDE_DIRS}
 )
 
 link_directories(
@@ -59,5 +62,3 @@ target_link_libraries(${PROJECT_NAME}_node
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
 )
-
-set(CMAKE_CXX_FLAGS "-std=c++0x ${CMAKE_CXX_FLAGS}")
