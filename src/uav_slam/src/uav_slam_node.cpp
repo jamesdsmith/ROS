@@ -36,23 +36,21 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-// This defines the uav_localization node.
+// This defines the uav_slam node.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <ros/ros.h>
-#include <uav_localization/uav_localization.h>
+#include <uav_slam/uav_slam.h>
 
 int main(int argc, char** argv) {
   // Generate a new node.
-  ros::init(argc, argv, "uav_localization");
+  ros::init(argc, argv, "uav_slam");
   ros::NodeHandle n("~");
 
   // Initialize a new UAVLocalization.
-  UAVLocalization localization;
-  UAVMapper mapper;
-  UAVOdometry odometry;
-  if (!localization.Initialize(n, &mapper, &odometry)) {
+  UAVSlam slam;
+  if (!slam.Initialize(n)) {
     ROS_ERROR("%s: Failed to initialize UAVLocalization.",
               ros::this_node::getName().c_str());
     return EXIT_FAILURE;

@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<package>
+  <name>uav_slam</name>
+  <version>0.0.0</version>
+  <description>The uav_slam package. Estimate current position against the global map, using odometry as the initial guess.</description>
+
+  <author email="dfk@eecs.berkeley.edu">David Fridovich-Keil</author>
+  <maintainer email="dfk@eecs.berkeley.edu">David Fridovich-Keil</maintainer>
+  <license>GPL</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <build_depend>roscpp</build_depend>
+  <build_depend>sensor_msgs</build_depend>
+  <build_depend>geometry_msgs</build_depend>
+  <build_depend>pcl_ros</build_depend>
+  <build_depend>uav_odometry</build_depend>
+  <build_depend>uav_mapper</build_depend>
+  <build_depend>uav_localization</build_depend>
+  
+  <run_depend>roscpp</run_depend>
+  <run_depend>sensor_msgs</run_depend>
+  <run_depend>geometry_msgs</run_depend>
+  <run_depend>pcl_ros</run_depend>
+  <run_depend>uav_odometry</run_depend>
+  <run_depend>uav_mapper</run_depend>
+  <run_depend>uav_localization</run_depend>
+</package>

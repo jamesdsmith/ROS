@@ -115,3 +115,8 @@ void UAVMapper::InsertPoints(const PointCloud& cloud) {
 #endif
   }
 }
+
+// Size.
+size_t UAVMapper::Size() {
+  return map_cloud_->points.size();
+}

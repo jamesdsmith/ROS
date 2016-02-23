@@ -61,49 +61,32 @@ class UAVLocalization {
   explicit UAVLocalization();
   ~UAVLocalization();
 
-  bool Initialize(const ros::NodeHandle& n);
+  bool Initialize(const ros::NodeHandle& n,
+                  UAVMapper *mapper, UAVOdometry *odometry);
+
+  // Localize against the map.
+  void Localize(const PointCloud::ConstPtr& cloud);
+
+  // Get refined rotation and translation.
+  Eigen::Matrix3d& GetRefinedRotation();
+  Eigen::Vector3d& GetRefinedTranslation();
 
  private:
   bool LoadParameters(const ros::NodeHandle& n);
   bool RegisterCallbacks(const ros::NodeHandle& n);
 
-  // Callbacks.
-  void AddPointCloudCallback(const PointCloud::ConstPtr& cloud);
-  void TimerCallback(const ros::TimerEvent& event);
-
-  // Refine localization estimate.
-  void RefineTransformation(const PointCloud::Ptr& map,
-                            const PointCloud::Ptr& transformed_scan,
+  // Refine initial guess.
+  void RefineTransformation(const PointCloud::Ptr& target,
+                            const PointCloud::Ptr& source,
                             const Eigen::Matrix4d& initial_tf,
                             Eigen::Matrix4d& refined_tf);
 
-  // Publish.
-  void PublishPose(const Eigen::Matrix3d& rotation,
-                   const Eigen::Vector3d& translation,
-                   const std::string& child_frame_id);
-  void PublishFullScan(const PointCloud::ConstPtr& cloud);
-  void PublishFilteredScan(const PointCloud::Ptr& cloud);
-
   // Member variables.
-  UAVOdometry odometry_;
-  UAVMapper mapper_;
-  Eigen::Matrix3d refined_rotation_, odometry_rotation_;
-  Eigen::Vector3d refined_translation_, odometry_translation_;
+  UAVMapper *mapper_;
+  UAVOdometry *odometry_;
+  Eigen::Matrix3d refined_rotation_;
+  Eigen::Vector3d refined_translation_;
 
-  // Subscribers.
-  ros::Subscriber point_cloud_subscriber_;
-  ros::Timer timer_;
-  MessageSynchronizer<PointCloud::ConstPtr> synchronizer_;
-
-  // Publishers.
-  ros::Publisher scan_publisher_full_;
-  ros::Publisher scan_publisher_filtered_;
-  tf2_ros::TransformBroadcaster transform_broadcaster_;
-
-  // Time stamp.
-  ros::Time stamp_;
-
-  bool first_step_;
   bool initialized_;
   std::string name_;
 };

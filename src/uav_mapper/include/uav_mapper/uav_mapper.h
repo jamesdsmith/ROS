@@ -68,6 +68,9 @@ class UAVMapper {
   // Add points to map.
   void InsertPoints(const PointCloud& cloud);
 
+  // Size.
+  size_t Size();
+
  private:
   bool LoadParameters(const ros::NodeHandle& n);
   bool RegisterCallbacks(const ros::NodeHandle& n);

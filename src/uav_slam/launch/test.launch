@@ -1,0 +1,9 @@
+<launch>
+
+  <node name="uav_slam"
+        pkg="uav_slam"
+        type="uav_slam_node"
+        output="screen">
+  </node>
+
+</launch>

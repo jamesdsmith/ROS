@@ -36,28 +36,69 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-// This defines the uav_localization node.
+// This defines the UAVSlam class.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#ifndef UAV_SLAM_H
+#define UAV_SLAM_H
+
 #include <ros/ros.h>
+#include <message_synchronizer/message_synchronizer.h>
+#include <uav_odometry/uav_odometry.h>
+#include <uav_mapper/uav_mapper.h>
 #include <uav_localization/uav_localization.h>
+#include <sensor_msgs/PointCloud2.h>
+#include <pcl/point_types.h>
+#include <pcl_ros/point_cloud.h>
+#include <Eigen/Dense>
+#include <cmath>
 
-int main(int argc, char** argv) {
-  // Generate a new node.
-  ros::init(argc, argv, "uav_localization");
-  ros::NodeHandle n("~");
+typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
 
-  // Initialize a new UAVLocalization.
-  UAVLocalization localization;
-  UAVMapper mapper;
-  UAVOdometry odometry;
-  if (!localization.Initialize(n, &mapper, &odometry)) {
-    ROS_ERROR("%s: Failed to initialize UAVLocalization.",
-              ros::this_node::getName().c_str());
-    return EXIT_FAILURE;
-  }
+class UAVSlam {
+ public:
+  explicit UAVSlam();
+  ~UAVSlam();
 
-  ros::spin();
-  return EXIT_SUCCESS;
-}
+  bool Initialize(const ros::NodeHandle& n);
+
+ private:
+  bool LoadParameters(const ros::NodeHandle& n);
+  bool RegisterCallbacks(const ros::NodeHandle& n);
+
+  // Callbacks.
+  void AddPointCloudCallback(const PointCloud::ConstPtr& cloud);
+  void TimerCallback(const ros::TimerEvent& event);
+
+  // Publish.
+  void PublishPose(const Eigen::Matrix3d& rotation,
+                   const Eigen::Vector3d& translation,
+                   const std::string& child_frame_id);
+  void PublishFullScan(const PointCloud::ConstPtr& cloud);
+  void PublishFilteredScan(const PointCloud::Ptr& cloud);
+
+  // Member variables.
+  UAVOdometry odometry_;
+  UAVMapper mapper_;
+  UAVLocalization localization_;
+
+  // Subscribers.
+  ros::Subscriber point_cloud_subscriber_;
+  ros::Timer timer_;
+  MessageSynchronizer<PointCloud::ConstPtr> synchronizer_;
+
+  // Publishers.
+  ros::Publisher scan_publisher_full_;
+  ros::Publisher scan_publisher_filtered_;
+  tf2_ros::TransformBroadcaster transform_broadcaster_;
+
+  // Time stamp.
+  ros::Time stamp_;
+
+  bool first_step_;
+  bool initialized_;
+  std::string name_;
+};
+
+#endif
