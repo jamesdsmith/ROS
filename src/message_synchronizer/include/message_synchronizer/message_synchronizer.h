@@ -58,7 +58,7 @@ class MessageSynchronizer {
   void AddMessage(const MessageType& msg);
   void GetSorted(std::vector<MessageType>& sorted);
 
-  // Member variables.
+ private:
   std::vector<MessageType> buffer_;
 };
 
