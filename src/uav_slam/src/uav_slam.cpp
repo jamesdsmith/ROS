@@ -115,8 +115,8 @@ void UAVSlam::TimerCallback(const ros::TimerEvent& event) {
     localization_.Localize(cloud);
 
     // Publish.
-    PublishPose(localization_.GetRefinedRotation(),
-                localization_.GetRefinedTranslation(), "slam");
+    PublishPose(localization_.GetRefinedTransform(), "slam");
+    PublishPose(localization_.GetOdometryTransform(), "odom");
     PublishFullScan(cloud);
     PublishFilteredScan(odometry_.GetPreviousCloud());
   }
@@ -129,10 +129,12 @@ void UAVSlam::AddPointCloudCallback(const PointCloud::ConstPtr& cloud) {
 }
 
 // Publish refimed transform.
-void UAVSlam::PublishPose(const Eigen::Matrix3d& rotation,
-                          const Eigen::Vector3d& translation,
+void UAVSlam::PublishPose(const Transform3D& transform,
                           const std::string& child_frame_id) {
   geometry_msgs::TransformStamped stamped;
+
+  Eigen::Matrix3d rotation = transform.GetRotation();
+  Eigen::Vector3d translation = transform.GetTranslation();
 
   Eigen::Quaterniond quat(rotation);
   quat.normalize();

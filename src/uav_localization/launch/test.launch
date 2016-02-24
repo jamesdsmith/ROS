@@ -1,9 +1,0 @@
-<launch>
-
-  <node name="uav_localization"
-        pkg="uav_localization"
-        type="uav_localization_node"
-        output="screen">
-  </node>
-
-</launch>

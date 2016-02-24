@@ -14,6 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
   pcl_ros
   tf2_ros
   message_synchronizer
+  utils
 )
 
 catkin_package(
@@ -26,6 +27,7 @@ catkin_package(
     pcl_ros
     tf2_ros
     message_synchronizer
+    utils
 )
 
 include_directories(include ${catkin_INCLUDE_DIRS})

@@ -50,9 +50,6 @@ UAVLocalization::~UAVLocalization() {}
 bool UAVLocalization::Initialize(const ros::NodeHandle& n,
                                  UAVMapper *mapper, UAVOdometry *odometry) {
   name_ = ros::names::append(n.getNamespace(), "uav_localization");
-  refined_rotation_ = Eigen::Matrix3d::Identity();
-  refined_translation_ = Eigen::Vector3d::Zero();
-
   odometry_ = odometry;
   mapper_ = mapper;
 
@@ -72,6 +69,16 @@ bool UAVLocalization::Initialize(const ros::NodeHandle& n,
 
 // Load parameters.
 bool UAVLocalization::LoadParameters(const ros::NodeHandle& n) {
+  // ICP params.
+  if (!ros::param::get("/uav_slam/icp/ransac_thresh", ransac_thresh_))
+    return false;
+  if (!ros::param::get("/uav_slam/icp/tf_epsilon", tf_epsilon_))
+    return false;
+  if (!ros::param::get("/uav_slam/icp/corr_dist", corr_dist_))
+    return false;
+  if (!ros::param::get("/uav_slam/icp/max_iters", max_iters_))
+    return false;
+
   return true;
 }
 
@@ -80,35 +87,47 @@ bool UAVLocalization::RegisterCallbacks(const ros::NodeHandle& n) {
   return true;
 }
 
-// Get refined rotation and translation.
-Eigen::Matrix3d& UAVLocalization::GetRefinedRotation() {
-  return refined_rotation_;
+// Get refined transform.
+Transform3D& UAVLocalization::GetRefinedTransform() {
+  if (!initialized_) {
+    ROS_ERROR("%s: Tried to get refined transform before initializing.",
+              name_.c_str());
+  }
+
+  return refined_transform_;
 }
 
-Eigen::Vector3d& UAVLocalization::GetRefinedTranslation() {
-  return refined_translation_;
+Transform3D& UAVLocalization::GetOdometryTransform() {
+  if (!initialized_) {
+    ROS_ERROR("%s: Tried to get odometry transform before initializing.",
+              name_.c_str());
+  }
+
+  return odometry_transform_;
 }
 
 // Localize a new scan against the map.
 void UAVLocalization::Localize(const PointCloud::ConstPtr& scan) {
+  if (!initialized_) {
+    ROS_ERROR("%s: Tried to localize before initializing.", name_.c_str());
+    return;
+  }
+
   PointCloud::Ptr neighbors(new PointCloud);
   PointCloud::Ptr transformed(new PointCloud);
 
   // Calculate odometry.
-  odometry_->SetIntegratedRotation(refined_rotation_);
-  odometry_->SetIntegratedTranslation(refined_translation_);
+  odometry_->ResetIntegratedTransform();
   odometry_->UpdateOdometry(scan);
   PointCloud::Ptr filtered = odometry_->GetPreviousCloud();
 
   // Extract initial transform and update odometry estimate.
-  const Eigen::Matrix3d initial_rotation = odometry_->GetIntegratedRotation();
-  const Eigen::Vector3d initial_translation = odometry_->GetIntegratedTranslation();
+  const Transform3D incremental_transform = odometry_->GetIntegratedTransform();
+  odometry_transform_ *= incremental_transform;
+  refined_transform_ *= incremental_transform;
 
   // Transform cloud into world frame.
-  Eigen::Matrix4d initial_tf = Eigen::Matrix4d::Identity();
-  Eigen::Matrix4d refined_tf = Eigen::Matrix4d::Identity();
-  initial_tf.block(0, 0, 3, 3) = initial_rotation;
-  initial_tf.block(0, 3, 3, 1) = initial_translation;
+  Eigen::Matrix4d initial_tf = refined_transform_.GetTransform();
   pcl::transformPointCloud(*filtered, *transformed, initial_tf);
 
   if (mapper_->Size() > 0) {
@@ -119,38 +138,38 @@ void UAVLocalization::Localize(const PointCloud::ConstPtr& scan) {
     }
 
     // Refine initial guess.
-    RefineTransformation(neighbors, transformed, initial_tf, refined_tf);
-  } else {
-    refined_tf = initial_tf;
+    RefineTransformation(neighbors, transformed);
   }
 
-  // Update integrated rotation and translation.
-  refined_rotation_ = refined_tf.block(0, 0, 3, 3);
-  refined_translation_ = refined_tf.block(0, 3, 3, 1);
-
   // Add to the map.
+  Eigen::Matrix4d refined_tf = refined_transform_.GetTransform();
   pcl::transformPointCloud(*scan, *transformed, refined_tf);
   mapper_->InsertPoints(*transformed);
 }
 
 // Refine initial guess.
 void UAVLocalization::RefineTransformation(const PointCloud::Ptr& target,
-                                           const PointCloud::Ptr& source,
-                                           const Eigen::Matrix4d& initial_tf,
-                                           Eigen::Matrix4d& refined_tf) {
+                                           const PointCloud::Ptr& source) {
+  if (!initialized_) {
+    ROS_ERROR("%s: Tried to refine transform before initializing.",
+              name_.c_str());
+    return;
+  }
+
 
   // Setup.
   pcl::GeneralizedIterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp;
   icp.setInputSource(source);
   icp.setInputTarget(target);
-  icp.setMaxCorrespondenceDistance(0.5);
-  icp.setMaximumIterations(10);
-  icp.setTransformationEpsilon(1e-12);
-  icp.setEuclideanFitnessEpsilon(1e-8);
-  icp.setRANSACOutlierRejectionThreshold(0.5);
+  icp.setMaxCorrespondenceDistance(corr_dist_);
+  icp.setMaximumIterations(max_iters_);
+  icp.setTransformationEpsilon(tf_epsilon_);
+  icp.setRANSACOutlierRejectionThreshold(ransac_thresh_);
 
   // Align.
   PointCloud aligned_scan;
   icp.align(aligned_scan);
-  refined_tf = icp.getFinalTransformation().cast<double>() * initial_tf;
+
+  Transform3D refinement(icp.getFinalTransformation().cast<double>());
+  refined_transform_ = refinement * refined_transform_;
 }

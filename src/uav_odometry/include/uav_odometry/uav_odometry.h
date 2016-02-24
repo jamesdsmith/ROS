@@ -45,6 +45,7 @@
 
 #include <ros/ros.h>
 #include <message_synchronizer/message_synchronizer.h>
+#include <utils/math/transform_3d.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <pcl/point_types.h>
@@ -57,6 +58,7 @@
 #include <cmath>
 
 typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
+using namespace math;
 
 class UAVOdometry {
  public:
@@ -69,33 +71,31 @@ class UAVOdometry {
   void UpdateOdometry(const PointCloud::ConstPtr& cloud);
 
   // Get current pose estimate.
-  Eigen::Matrix3d& GetIntegratedRotation();
-  Eigen::Vector3d& GetIntegratedTranslation();
+  Transform3D& GetIntegratedTransform();
+
+  // Reset integrated transform.
+  void SetIntegratedTransform(Transform3D& transform);
+  void ResetIntegratedTransform();
 
   // Get previous cloud.
   PointCloud::Ptr GetPreviousCloud();
   PointCloud::Ptr GetAlignedCloud();
 
-  // Reset integrated transform.
-  void SetIntegratedRotation(Eigen::Matrix3d& rotation);
-  void SetIntegratedTranslation(Eigen::Vector3d& translation);
-
  private:
   bool LoadParameters(const ros::NodeHandle& n);
   bool RegisterCallbacks(const ros::NodeHandle& n);
 
+  // Run ICP.
   void RunICP(const PointCloud::ConstPtr& cloud);
 
-  // Integrated transform.
-  Eigen::Matrix3d integrated_rotation_;
-  Eigen::Vector3d integrated_translation_;
-  bool initialized_;
-
-  // Last point cloud.
+  // Member variables.
+  Transform3D integrated_transform_;
   PointCloud::Ptr previous_cloud_;
   PointCloud::Ptr aligned_cloud_;
 
-  // Name.
+  double voxel_leaf_size_, sor_zscore_, ransac_thresh_, tf_epsilon_, corr_dist_;
+  int sor_knn_, max_iters_;
+  bool initialized_;
   std::string name_;
 };
 

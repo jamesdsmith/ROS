@@ -45,6 +45,7 @@
 
 #include <ros/ros.h>
 #include <message_synchronizer/message_synchronizer.h>
+#include <utils/math/transform_3d.h>
 #include <uav_odometry/uav_odometry.h>
 #include <uav_mapper/uav_mapper.h>
 #include <uav_localization/uav_localization.h>
@@ -55,6 +56,7 @@
 #include <cmath>
 
 typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
+using namespace math;
 
 class UAVSlam {
  public:
@@ -72,8 +74,7 @@ class UAVSlam {
   void TimerCallback(const ros::TimerEvent& event);
 
   // Publish.
-  void PublishPose(const Eigen::Matrix3d& rotation,
-                   const Eigen::Vector3d& translation,
+  void PublishPose(const Transform3D& transform,
                    const std::string& child_frame_id);
   void PublishFullScan(const PointCloud::ConstPtr& cloud);
   void PublishFilteredScan(const PointCloud::Ptr& cloud);

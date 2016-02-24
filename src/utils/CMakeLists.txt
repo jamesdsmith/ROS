@@ -15,7 +15,7 @@ catkin_package(
     roscpp
 )
 
-install(DIRECTORY include/${PROJECT_NAME}/
+install(DIRECTORY include/${PACKAGE_NAME}
   DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
   FILES_MATCHING PATTERN "*.h"
 )

@@ -45,6 +45,7 @@
 
 #include <ros/ros.h>
 #include <message_synchronizer/message_synchronizer.h>
+#include <utils/math/transform_3d.h>
 #include <uav_odometry/uav_odometry.h>
 #include <uav_mapper/uav_mapper.h>
 #include <sensor_msgs/PointCloud2.h>
@@ -55,6 +56,7 @@
 #include <cmath>
 
 typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
+using namespace math;
 
 class UAVLocalization {
  public:
@@ -67,9 +69,9 @@ class UAVLocalization {
   // Localize against the map.
   void Localize(const PointCloud::ConstPtr& cloud);
 
-  // Get refined rotation and translation.
-  Eigen::Matrix3d& GetRefinedRotation();
-  Eigen::Vector3d& GetRefinedTranslation();
+  // Get transforms.
+  Transform3D& GetRefinedTransform();
+  Transform3D& GetOdometryTransform();
 
  private:
   bool LoadParameters(const ros::NodeHandle& n);
@@ -77,16 +79,16 @@ class UAVLocalization {
 
   // Refine initial guess.
   void RefineTransformation(const PointCloud::Ptr& target,
-                            const PointCloud::Ptr& source,
-                            const Eigen::Matrix4d& initial_tf,
-                            Eigen::Matrix4d& refined_tf);
+                            const PointCloud::Ptr& source);
 
   // Member variables.
   UAVMapper *mapper_;
   UAVOdometry *odometry_;
-  Eigen::Matrix3d refined_rotation_;
-  Eigen::Vector3d refined_translation_;
+  Transform3D refined_transform_;
+  Transform3D odometry_transform_;
 
+  double ransac_thresh_, tf_epsilon_, corr_dist_;
+  int max_iters_;
   bool initialized_;
   std::string name_;
 };

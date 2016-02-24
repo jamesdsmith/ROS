@@ -1,9 +1,0 @@
-<launch>
-
-  <node name="uav_odometry"
-        pkg="uav_odometry"
-        type="uav_odometry_node"
-        output="screen">
-  </node>
-
-</launch>

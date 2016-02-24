@@ -1,9 +1,0 @@
-<launch>
-
-  <node name="uav_mapper"
-        pkg="uav_mapper"
-        type="uav_mapper_node"
-        output="screen">
-  </node>
-
-</launch>

@@ -46,10 +46,6 @@
 // Constructor/destructor.
 UAVMapper::UAVMapper() : initialized_(false) {
   map_cloud_.reset(new PointCloud);
-  map_octree_.reset(new Octree(0.1));
-
-  // Octree holds references to points in map_cloud_.
-  map_octree_->setInputCloud(map_cloud_);
 }
 
 UAVMapper::~UAVMapper() {}
@@ -68,12 +64,19 @@ bool UAVMapper::Initialize(const ros::NodeHandle& n) {
     return false;
   }
 
+  // Octree holds references to points in map_cloud_.
+  map_octree_.reset(new Octree(octree_resolution_));
+  map_octree_->setInputCloud(map_cloud_);
+
   initialized_ = true;
   return true;
 }
 
 // Load parameters.
 bool UAVMapper::LoadParameters(const ros::NodeHandle& n) {
+  if (!ros::param::get("/uav_slam/octree/octree_res", octree_resolution_))
+    return false;
+
   return true;
 }
 

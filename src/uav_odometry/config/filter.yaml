@@ -1,0 +1,9 @@
+filter:
+  # Filter leaf size.
+  voxel_leaf_size: 0.75
+
+  # Number of nearest neighbors for SOR.
+  sor_knn: 30
+
+  # Number of standard deviations away before SOR calls a point an outier.
+  sor_zscore: 0.3

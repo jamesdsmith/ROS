@@ -4,6 +4,15 @@
         pkg="uav_slam"
         type="uav_slam_node"
         output="screen">
+
+        <!-- ICP parameters -->
+        <rosparam file="$(find uav_odometry)/config/icp.yaml"/>
+
+        <!-- Filter parameters -->
+        <rosparam file="$(find uav_odometry)/config/filter.yaml"/>
+
+        <!-- Mapper parameters -->
+        <rosparam file="$(find uav_mapper)/config/octree.yaml"/>
   </node>
 
 </launch>
