@@ -70,9 +70,8 @@ bool UAVOdometry::Initialize(const ros::NodeHandle& n) {
 // Load parameters.
 bool UAVOdometry::LoadParameters(const ros::NodeHandle& n) {
   // Filter params.
-  if (!ros::param::get("/uav_slam/filter/voxel_leaf_size", voxel_leaf_size_)) {
+  if (!ros::param::get("/uav_slam/filter/voxel_leaf_size", voxel_leaf_size_))
     return false;
-  }
   if (!ros::param::get("/uav_slam/filter/sor_knn", sor_knn_))
     return false;
   if (!ros::param::get("/uav_slam/filter/sor_zscore", sor_zscore_))
