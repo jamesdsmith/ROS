@@ -95,6 +95,14 @@ bool UAVMapper::NearestNeighbors(const PointCloud::Ptr cloud,
     float nn_distance = -1.0;
     int nn_index = -1;
 
+    // Check valid point.
+    if (std::isnan(cloud->points[ii].x) ||
+        std::isnan(cloud->points[ii].y) ||
+        std::isnan(cloud->points[ii].z)) {
+      ROS_ERROR("%s: Skipping nan point.", name_.c_str());
+      continue;
+    }
+
     map_octree_->approxNearestSearch(cloud->points[ii], nn_index, nn_distance);
     if (nn_index >= 0) {
       neighbors->push_back(map_cloud_->points[nn_index]);

@@ -90,7 +90,7 @@ bool UAVSlam::RegisterCallbacks(const ros::NodeHandle& n) {
 
   // Subscriber.
   point_cloud_subscriber_ =
-    node.subscribe<PointCloud>("/velodyne_points", 20,
+    node.subscribe<PointCloud>("/mapper/cloud", 20,
                                &UAVSlam::AddPointCloudCallback, this);
 
   // Publishers.
