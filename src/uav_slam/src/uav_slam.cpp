@@ -81,6 +81,20 @@ bool UAVSlam::Initialize(const ros::NodeHandle& n) {
 
 // Load parameters.
 bool UAVSlam::LoadParameters(const ros::NodeHandle& n) {
+  // Input/output paramaters.
+  if (!ros::param::get("/uav_slam/io/scanner_topic", scanner_topic_))
+    return false;
+  if (!ros::param::get("/uav_slam/io/filtered_topic", filtered_topic_))
+    return false;
+  if (!ros::param::get("/uav_slam/io/unfiltered_topic", unfiltered_topic_))
+    return false;
+  if (!ros::param::get("/uav_slam/io/world_frame", world_frame_))
+    return false;
+  if (!ros::param::get("/uav_slam/io/odometry_frame", odometry_frame_))
+    return false;
+  if (!ros::param::get("/uav_slam/io/localized_frame", localized_frame_))
+    return false;
+
   return true;
 }
 
@@ -90,12 +104,14 @@ bool UAVSlam::RegisterCallbacks(const ros::NodeHandle& n) {
 
   // Subscriber.
   point_cloud_subscriber_ =
-    node.subscribe<PointCloud>("/mapper/cloud", 20,
+    node.subscribe<PointCloud>(scanner_topic_.c_str(), 20,
                                &UAVSlam::AddPointCloudCallback, this);
 
   // Publishers.
-  scan_publisher_full_ = node.advertise<PointCloud>("robot", 10, false);
-  scan_publisher_filtered_ = node.advertise<PointCloud>("filtered", 10, false);
+  scan_publisher_full_ =
+    node.advertise<PointCloud>(unfiltered_topic_.c_str(), 10, false);
+  scan_publisher_filtered_ =
+    node.advertise<PointCloud>(filtered_topic_.c_str(), 10, false);
 
   // Timer.
   timer_ = n.createTimer(ros::Duration(0.1), &UAVSlam::TimerCallback, this);
@@ -115,8 +131,8 @@ void UAVSlam::TimerCallback(const ros::TimerEvent& event) {
     localization_.Localize(cloud);
 
     // Publish.
-    PublishPose(localization_.GetRefinedTransform(), "slam");
-    PublishPose(localization_.GetOdometryTransform(), "odom");
+    PublishPose(localization_.GetRefinedTransform(), localized_frame_);
+    PublishPose(localization_.GetOdometryTransform(), odometry_frame_);
     PublishFullScan(cloud);
     PublishFilteredScan(odometry_.GetPreviousCloud());
   }
@@ -148,7 +164,7 @@ void UAVSlam::PublishPose(const Transform3D& transform,
   stamped.transform.translation.z = translation(2);
 
   stamped.header.stamp = stamp_;
-  stamped.header.frame_id = "world";
+  stamped.header.frame_id = world_frame_.c_str();
   stamped.child_frame_id = child_frame_id.c_str();
   transform_broadcaster_.sendTransform(stamped);
 }
@@ -160,7 +176,7 @@ void UAVSlam::PublishFullScan(const PointCloud::ConstPtr& cloud) {
 
   PointCloud msg = *cloud;
   msg.header.stamp = stamp_.toNSec() / 1000;
-  msg.header.frame_id = "slam";
+  msg.header.frame_id = localized_frame_.c_str();
   scan_publisher_full_.publish(msg);
 }
 
@@ -171,6 +187,6 @@ void UAVSlam::PublishFilteredScan(const PointCloud::Ptr& cloud) {
 
   PointCloud msg = *cloud;
   msg.header.stamp = stamp_.toNSec() / 1000;
-  msg.header.frame_id = "slam";
+  msg.header.frame_id = localized_frame_.c_str();
   scan_publisher_filtered_.publish(msg);
 }
