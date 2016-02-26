@@ -46,10 +46,6 @@
 // Constructor/destructor.
 UAVMapper::UAVMapper() : initialized_(false) {
   map_cloud_.reset(new PointCloud);
-  map_octree_.reset(new Octree(0.1));
-
-  // Octree holds references to points in map_cloud_.
-  map_octree_->setInputCloud(map_cloud_);
 }
 
 UAVMapper::~UAVMapper() {}
@@ -68,12 +64,19 @@ bool UAVMapper::Initialize(const ros::NodeHandle& n) {
     return false;
   }
 
+  // Octree holds references to points in map_cloud_.
+  map_octree_.reset(new Octree(octree_resolution_));
+  map_octree_->setInputCloud(map_cloud_);
+
   initialized_ = true;
   return true;
 }
 
 // Load parameters.
 bool UAVMapper::LoadParameters(const ros::NodeHandle& n) {
+  if (!ros::param::get("/uav_slam/octree/octree_res", octree_resolution_))
+    return false;
+
   return true;
 }
 
@@ -91,6 +94,14 @@ bool UAVMapper::NearestNeighbors(const PointCloud::Ptr cloud,
   for (size_t ii = 0; ii < cloud->points.size(); ii++) {
     float nn_distance = -1.0;
     int nn_index = -1;
+
+    // Check valid point.
+    if (std::isnan(cloud->points[ii].x) ||
+        std::isnan(cloud->points[ii].y) ||
+        std::isnan(cloud->points[ii].z)) {
+      ROS_ERROR("%s: Skipping nan point.", name_.c_str());
+      continue;
+    }
 
     map_octree_->approxNearestSearch(cloud->points[ii], nn_index, nn_distance);
     if (nn_index >= 0) {
@@ -114,4 +125,9 @@ void UAVMapper::InsertPoints(const PointCloud& cloud) {
       map_cloud_->push_back(point);
 #endif
   }
+}
+
+// Size.
+size_t UAVMapper::Size() {
+  return map_cloud_->points.size();
 }

@@ -36,67 +36,26 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-// Start up a new message synchronizer.
+// This defines the uav_slam node.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#ifndef MESSAGE_SYNCHRONIZER_H
-#define MESSAGE_SYNCHRONIZER_H
+#include <ros/ros.h>
+#include <uav_slam/uav_slam.h>
 
-#include <vector>
-#include <algorithm>
-#include <functional>
+int main(int argc, char** argv) {
+  // Generate a new node.
+  ros::init(argc, argv, "uav_slam");
+  ros::NodeHandle n("~");
 
-// Single message type.
-template<typename MessageType>
-class MessageSynchronizer {
- public:
-  explicit MessageSynchronizer();
-  ~MessageSynchronizer();
-
-  // Add message.
-  void AddMessage(const MessageType& msg);
-  void GetSorted(std::vector<MessageType>& sorted);
-
- private:
-  std::vector<MessageType> buffer_;
-};
-
-// ------------------------- IMPLEMENTATION ---------------------------------- //
-
-// Constructor/destructor.
-template<typename MessageType>
-MessageSynchronizer<MessageType>::MessageSynchronizer() {}
-
-template<typename MessageType>
-MessageSynchronizer<MessageType>::~MessageSynchronizer() {}
-
-// Message callback.
-template<typename MessageType>
-void MessageSynchronizer<MessageType>::AddMessage(const MessageType& msg) {
-  buffer_.push_back(msg);
-}
-
-template<typename MessageType>
-struct TimeComparitor {
-  bool operator()(const MessageType& msg1, const MessageType& msg2) {
-    return msg1->header.stamp < msg2->header.stamp;
+  // Initialize a new UAVLocalization.
+  UAVSlam slam;
+  if (!slam.Initialize(n)) {
+    ROS_ERROR("%s: Failed to initialize UAVLocalization.",
+              ros::this_node::getName().c_str());
+    return EXIT_FAILURE;
   }
-};
 
-// Timer callback.
-template<typename MessageType>
-void MessageSynchronizer<MessageType>::GetSorted(std::vector<MessageType>& sorted) {
-  // Sort buffer_ by timestamps.
-  std::sort(buffer_.begin(), buffer_.end(), TimeComparitor<MessageType>());
-
-  // Copy into a new vector.
-  sorted.clear();
-  for (size_t ii = 0; ii < buffer_.size(); ii++)
-    sorted.push_back(buffer_[ii]);
-
-  // Clear buffer_.
-  buffer_.clear();
+  ros::spin();
+  return EXIT_SUCCESS;
 }
-
-#endif

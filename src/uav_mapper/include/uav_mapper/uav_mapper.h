@@ -68,6 +68,9 @@ class UAVMapper {
   // Add points to map.
   void InsertPoints(const PointCloud& cloud);
 
+  // Size.
+  size_t Size();
+
  private:
   bool LoadParameters(const ros::NodeHandle& n);
   bool RegisterCallbacks(const ros::NodeHandle& n);
@@ -76,6 +79,7 @@ class UAVMapper {
   PointCloud::Ptr map_cloud_;
   Octree::Ptr map_octree_;
 
+  double octree_resolution_;
   bool initialized_;
   std::string name_;
 };

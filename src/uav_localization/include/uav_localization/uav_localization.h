@@ -45,6 +45,7 @@
 
 #include <ros/ros.h>
 #include <message_synchronizer/message_synchronizer.h>
+#include <utils/math/transform_3d.h>
 #include <uav_odometry/uav_odometry.h>
 #include <uav_mapper/uav_mapper.h>
 #include <sensor_msgs/PointCloud2.h>
@@ -55,53 +56,39 @@
 #include <cmath>
 
 typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
+using namespace math;
 
 class UAVLocalization {
  public:
   explicit UAVLocalization();
   ~UAVLocalization();
 
-  bool Initialize(const ros::NodeHandle& n);
+  bool Initialize(const ros::NodeHandle& n,
+                  UAVMapper *mapper, UAVOdometry *odometry);
+
+  // Localize against the map.
+  void Localize(const PointCloud::ConstPtr& cloud);
+
+  // Get transforms.
+  Transform3D& GetRefinedTransform();
+  Transform3D& GetOdometryTransform();
 
  private:
   bool LoadParameters(const ros::NodeHandle& n);
   bool RegisterCallbacks(const ros::NodeHandle& n);
 
-  // Callbacks.
-  void AddPointCloudCallback(const PointCloud::ConstPtr& cloud);
-  void TimerCallback(const ros::TimerEvent& event);
-
-  // Refine localization estimate.
-  void RefineTransformation(const PointCloud::Ptr& map,
-                            const PointCloud::ConstPtr& scan,
-                            const Eigen::Matrix4d& initial_tf,
-                            Eigen::Matrix4d& refined_tf);
-
-  // Publish.
-  void PublishPose();
-  void PublishFullScan(const PointCloud::ConstPtr& cloud);
-  void PublishFilteredScan(const PointCloud::Ptr& cloud);
+  // Refine initial guess.
+  void RefineTransformation(const PointCloud::Ptr& target,
+                            const PointCloud::Ptr& source);
 
   // Member variables.
-  UAVOdometry odometry_;
-  UAVMapper mapper_;
-  Eigen::Matrix3d integrated_rotation_;
-  Eigen::Vector3d integrated_translation_;
+  UAVMapper *mapper_;
+  UAVOdometry *odometry_;
+  Transform3D refined_transform_;
+  Transform3D odometry_transform_;
 
-  // Subscribers.
-  ros::Subscriber point_cloud_subscriber_;
-  ros::Timer timer_;
-  MessageSynchronizer<PointCloud::ConstPtr> synchronizer_;
-
-  // Publishers.
-  ros::Publisher scan_publisher_full_;
-  ros::Publisher scan_publisher_filtered_;
-  tf2_ros::TransformBroadcaster transform_broadcaster_;
-
-  // Time stamp.
-  ros::Time stamp_;
-
-  bool first_step_;
+  double ransac_thresh_, tf_epsilon_, corr_dist_;
+  int max_iters_;
   bool initialized_;
   std::string name_;
 };

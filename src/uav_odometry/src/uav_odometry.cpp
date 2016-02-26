@@ -41,11 +41,13 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <uav_odometry/uav_odometry.h>
-#include <message_synchronizer/message_synchronizer.h>
 
 // Constructor/destructor.
-UAVOdometry::UAVOdometry() :
-  initialized_(false) { previous_cloud_.reset(new PointCloud); }
+UAVOdometry::UAVOdometry() : initialized_(false) {
+  previous_cloud_.reset(new PointCloud);
+  aligned_cloud_.reset(new PointCloud);
+}
+
 UAVOdometry::~UAVOdometry() {}
 
 // Initialize.
@@ -67,9 +69,23 @@ bool UAVOdometry::Initialize(const ros::NodeHandle& n) {
 
 // Load parameters.
 bool UAVOdometry::LoadParameters(const ros::NodeHandle& n) {
-  // Integrated transform.
-  integrated_rotation_ = Eigen::Matrix3d::Identity();
-  integrated_translation_ = Eigen::Vector3d::Zero();
+  // Filter params.
+  if (!ros::param::get("/uav_slam/filter/voxel_leaf_size", voxel_leaf_size_))
+    return false;
+  if (!ros::param::get("/uav_slam/filter/sor_knn", sor_knn_))
+    return false;
+  if (!ros::param::get("/uav_slam/filter/sor_zscore", sor_zscore_))
+    return false;
+
+  // ICP params.
+  if (!ros::param::get("/uav_slam/icp/ransac_thresh", ransac_thresh_))
+    return false;
+  if (!ros::param::get("/uav_slam/icp/tf_epsilon", tf_epsilon_))
+    return false;
+  if (!ros::param::get("/uav_slam/icp/corr_dist", corr_dist_))
+    return false;
+  if (!ros::param::get("/uav_slam/icp/max_iters", max_iters_))
+    return false;
 
   return true;
 }
@@ -80,12 +96,8 @@ bool UAVOdometry::RegisterCallbacks(const ros::NodeHandle& n) {
 }
 
 // Get integrated transform.
-Eigen::Matrix3d& UAVOdometry::GetIntegratedRotation() {
-  return integrated_rotation_;
-}
-
-Eigen::Vector3d& UAVOdometry::GetIntegratedTranslation() {
-  return integrated_translation_;
+Transform3D& UAVOdometry::GetIntegratedTransform() {
+  return integrated_transform_;
 }
 
 // Get previous cloud.
@@ -93,21 +105,23 @@ PointCloud::Ptr UAVOdometry::GetPreviousCloud() {
   return previous_cloud_;
 }
 
+PointCloud::Ptr UAVOdometry::GetAlignedCloud() {
+  return aligned_cloud_;
+}
+
 // Reset integrated transform.
-void UAVOdometry::SetIntegratedRotation(Eigen::Matrix3d& rotation) {
-  integrated_rotation_ = rotation;
+void UAVOdometry::SetIntegratedTransform(Transform3D& transform) {
+  integrated_transform_ = transform;
 }
 
-void UAVOdometry::SetIntegratedTranslation(Eigen::Vector3d& translation) {
-  integrated_translation_ = translation;
+void UAVOdometry::ResetIntegratedTransform() {
+  integrated_transform_ = Transform3D();
 }
-
 
 // Update odometry estimate with next point cloud.
 void UAVOdometry::UpdateOdometry(const PointCloud::ConstPtr& cloud) {
   RunICP(cloud);
 }
-
 
 // Calculate incremental transform.
 void UAVOdometry::RunICP(const PointCloud::ConstPtr& cloud) {
@@ -117,14 +131,14 @@ void UAVOdometry::RunICP(const PointCloud::ConstPtr& cloud) {
   // Voxel grid filter.
   pcl::VoxelGrid<pcl::PointXYZ> grid_filter;
   grid_filter.setInputCloud(cloud);
-  grid_filter.setLeafSize(0.75, 0.75, 0.75);
+  grid_filter.setLeafSize(voxel_leaf_size_, voxel_leaf_size_, voxel_leaf_size_);
   grid_filter.filter(*grid_cloud);
 
   // Statistical outlier removal.
   pcl::StatisticalOutlierRemoval<pcl::PointXYZ> sor_filter;
   sor_filter.setInputCloud(grid_cloud);
-  sor_filter.setMeanK(30);
-  sor_filter.setStddevMulThresh(1.0);
+  sor_filter.setMeanK(sor_knn_);
+  sor_filter.setStddevMulThresh(sor_zscore_);
   sor_filter.filter(*sor_cloud);
 
   // Handle base case.
@@ -137,25 +151,20 @@ void UAVOdometry::RunICP(const PointCloud::ConstPtr& cloud) {
   pcl::GeneralizedIterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp;
   icp.setInputSource(sor_cloud);
   icp.setInputTarget(previous_cloud_);
-  icp.setMaxCorrespondenceDistance(0.5);
-  icp.setMaximumIterations(10);
-  icp.setTransformationEpsilon(1e-12);
-  icp.setEuclideanFitnessEpsilon(1e-8);
-  icp.setRANSACOutlierRejectionThreshold(0.5);
+  icp.setMaxCorrespondenceDistance(corr_dist_);
+  icp.setMaximumIterations(max_iters_);
+  icp.setTransformationEpsilon(tf_epsilon_);
+  icp.setRANSACOutlierRejectionThreshold(ransac_thresh_);
 
   // Align.
-  PointCloud aligned_cloud;
-  icp.align(aligned_cloud);
+  icp.align(*aligned_cloud_);
 
   // Update pointer to last point cloud.
   pcl::copyPointCloud(*sor_cloud, *previous_cloud_);
 
   // Get transform.
-  Eigen::Matrix4f pose = icp.getFinalTransformation();
-  Eigen::Matrix3d rotation = pose.block(0, 0, 3, 3).cast<double>();
-  Eigen::Vector3d translation = pose.block(0, 3, 3, 1).cast<double>();
+  Eigen::Matrix4d pose = icp.getFinalTransformation().cast<double>();
 
-  integrated_translation_ =
-    integrated_rotation_ * translation + integrated_translation_;
-  integrated_rotation_ = integrated_rotation_ * rotation;
+  Transform3D incremental_transform(pose);
+  integrated_transform_ *= incremental_transform;
 }

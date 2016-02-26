@@ -50,7 +50,9 @@ int main(int argc, char** argv) {
 
   // Initialize a new UAVLocalization.
   UAVLocalization localization;
-  if (!localization.Initialize(n)) {
+  UAVMapper mapper;
+  UAVOdometry odometry;
+  if (!localization.Initialize(n, &mapper, &odometry)) {
     ROS_ERROR("%s: Failed to initialize UAVLocalization.",
               ros::this_node::getName().c_str());
     return EXIT_FAILURE;

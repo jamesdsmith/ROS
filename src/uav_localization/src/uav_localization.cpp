@@ -43,19 +43,15 @@
 #include <uav_localization/uav_localization.h>
 
 // Constructor/destructor.
-UAVLocalization::UAVLocalization() : initialized_(false), first_step_(true) {}
+UAVLocalization::UAVLocalization() : initialized_(false) {}
 UAVLocalization::~UAVLocalization() {}
 
 // Initialize.
-bool UAVLocalization::Initialize(const ros::NodeHandle& n) {
+bool UAVLocalization::Initialize(const ros::NodeHandle& n,
+                                 UAVMapper *mapper, UAVOdometry *odometry) {
   name_ = ros::names::append(n.getNamespace(), "uav_localization");
-  integrated_rotation_ = Eigen::Matrix3d::Identity();
-  integrated_translation_ = Eigen::Vector3d::Zero();
-
-  if (!odometry_.Initialize(n)) {
-    ROS_ERROR("%s: Failed to initialize UAVOdometry.", name_.c_str());
-    return false;
-  }
+  odometry_ = odometry;
+  mapper_ = mapper;
 
   if (!LoadParameters(n)) {
     ROS_ERROR("%s: Failed to load parameters.", name_.c_str());
@@ -73,146 +69,107 @@ bool UAVLocalization::Initialize(const ros::NodeHandle& n) {
 
 // Load parameters.
 bool UAVLocalization::LoadParameters(const ros::NodeHandle& n) {
+  // ICP params.
+  if (!ros::param::get("/uav_slam/icp/ransac_thresh", ransac_thresh_))
+    return false;
+  if (!ros::param::get("/uav_slam/icp/tf_epsilon", tf_epsilon_))
+    return false;
+  if (!ros::param::get("/uav_slam/icp/corr_dist", corr_dist_))
+    return false;
+  if (!ros::param::get("/uav_slam/icp/max_iters", max_iters_))
+    return false;
+
   return true;
 }
 
 // Register callbacks.
 bool UAVLocalization::RegisterCallbacks(const ros::NodeHandle& n) {
-  ros::NodeHandle node(n);
-
-  // Subscriber.
-  point_cloud_subscriber_ =
-    node.subscribe<PointCloud>("/velodyne_points", 20,
-                               &UAVLocalization::AddPointCloudCallback, this);
-
-  // Publishers.
-  scan_publisher_full_ = node.advertise<PointCloud>("robot", 10, false);
-  scan_publisher_filtered_ = node.advertise<PointCloud>("filtered", 10, false);
-
-  // Timer.
-  timer_ = n.createTimer(ros::Duration(0.1), &UAVLocalization::TimerCallback, this);
-
   return true;
 }
 
-// Timer callback.
-void UAVLocalization::TimerCallback(const ros::TimerEvent& event) {
-  std::vector<PointCloud::ConstPtr> sorted_clouds;
-  synchronizer_.GetSorted(sorted_clouds);
+// Get refined transform.
+Transform3D& UAVLocalization::GetRefinedTransform() {
+  if (!initialized_) {
+    ROS_ERROR("%s: Tried to get refined transform before initializing.",
+              name_.c_str());
+  }
 
-  for (size_t ii = 0; ii < sorted_clouds.size(); ii++) {
-    const PointCloud::ConstPtr cloud = sorted_clouds[ii];
-    PointCloud::Ptr transformed_cloud(new PointCloud);
-    PointCloud::Ptr neighbors(new PointCloud);
+  return refined_transform_;
+}
 
-    // Calculate odometry.
-    odometry_.SetIntegratedRotation(integrated_rotation_);
-    odometry_.SetIntegratedTranslation(integrated_translation_);
-    odometry_.UpdateOdometry(cloud);
-    PointCloud::Ptr filtered_cloud = odometry_.GetPreviousCloud();
+Transform3D& UAVLocalization::GetOdometryTransform() {
+  if (!initialized_) {
+    ROS_ERROR("%s: Tried to get odometry transform before initializing.",
+              name_.c_str());
+  }
 
-    // Extract initial transform.
-    const Eigen::Matrix3d initial_rotation = odometry_.GetIntegratedRotation();
-    const Eigen::Vector3d initial_translation = odometry_.GetIntegratedTranslation();
+  return odometry_transform_;
+}
 
-    // Transform cloud into world frame.
-    Eigen::Matrix4d initial_tf = Eigen::Matrix4d::Identity();
-    Eigen::Matrix4d refined_tf = Eigen::Matrix4d::Identity();
-    initial_tf.block(0, 0, 3, 3) = initial_rotation;
-    initial_tf.block(0, 3, 3, 1) = initial_translation;
-    pcl::transformPointCloud(*filtered_cloud, *transformed_cloud, initial_tf);
+// Localize a new scan against the map.
+void UAVLocalization::Localize(const PointCloud::ConstPtr& scan) {
+  if (!initialized_) {
+    ROS_ERROR("%s: Tried to localize before initializing.", name_.c_str());
+    return;
+  }
 
-    if (!first_step_) {
-      // Grab nearest neighbors in map.
-      if (!mapper_.NearestNeighbors(transformed_cloud, neighbors)) {
-        ROS_ERROR("%s: UAVMapper could not find nearest neighbors.", name_.c_str());
-        continue;
-      }
+  PointCloud::Ptr neighbors(new PointCloud);
+  PointCloud::Ptr transformed(new PointCloud);
 
-      // Refine initial guess.
-      RefineTransformation(neighbors, filtered_cloud, initial_tf, refined_tf);
-    } else {
-      first_step_ = false;
-      refined_tf = initial_tf;
+  // Calculate odometry.
+  odometry_->ResetIntegratedTransform();
+  odometry_->UpdateOdometry(scan);
+  PointCloud::Ptr filtered = odometry_->GetPreviousCloud();
+
+  // Extract initial transform and update odometry estimate.
+  const Transform3D incremental_transform = odometry_->GetIntegratedTransform();
+  odometry_transform_ *= incremental_transform;
+  refined_transform_ *= incremental_transform;
+
+  // Transform cloud into world frame.
+  Eigen::Matrix4d initial_tf = refined_transform_.GetTransform();
+  pcl::transformPointCloud(*filtered, *transformed, initial_tf);
+
+  if (mapper_->Size() > 0) {
+    // Grab nearest neighbors in map.
+    if (!mapper_->NearestNeighbors(transformed, neighbors)) {
+      ROS_ERROR("%s: UAVMapper could not find nearest neighbors.", name_.c_str());
+      return;
     }
 
-    // Update integrated rotation and translation.
-    integrated_rotation_ = refined_tf.block(0, 0, 3, 3);
-    integrated_translation_ = refined_tf.block(0, 3, 3, 1);
-
-    // Add to the map.
-    pcl::transformPointCloud(*cloud, *transformed_cloud, refined_tf);
-    mapper_.InsertPoints(*transformed_cloud);
-
-    // Publish transform and point clouds.
-    stamp_.fromNSec(cloud->header.stamp * 1000);
-    PublishPose();
-    PublishFullScan(cloud);
-    PublishFilteredScan(filtered_cloud);
+    // Refine initial guess.
+    RefineTransformation(neighbors, transformed);
   }
+
+  // Add to the map.
+  Eigen::Matrix4d refined_tf = refined_transform_.GetTransform();
+  pcl::transformPointCloud(*scan, *transformed, refined_tf);
+  mapper_->InsertPoints(*transformed);
 }
 
+// Refine initial guess.
+void UAVLocalization::RefineTransformation(const PointCloud::Ptr& target,
+                                           const PointCloud::Ptr& source) {
+  if (!initialized_) {
+    ROS_ERROR("%s: Tried to refine transform before initializing.",
+              name_.c_str());
+    return;
+  }
 
-// Point cloud callback.
-void UAVLocalization::AddPointCloudCallback(const PointCloud::ConstPtr& cloud) {
-  synchronizer_.AddMessage(cloud);
-}
 
-// Run ICP.
-void UAVLocalization::RefineTransformation(const PointCloud::Ptr& map,
-                                           const PointCloud::ConstPtr& scan,
-                                           const Eigen::Matrix4d& initial_tf,
-                                           Eigen::Matrix4d& refined_tf) {
   // Setup.
   pcl::GeneralizedIterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp;
-  icp.setInputSource(scan);
-  icp.setInputTarget(map);
-  icp.setMaxCorrespondenceDistance(0.5);
-  icp.setMaximumIterations(10);
-  icp.setTransformationEpsilon(1e-12);
-  icp.setEuclideanFitnessEpsilon(1e-8);
-  icp.setRANSACOutlierRejectionThreshold(0.5);
+  icp.setInputSource(source);
+  icp.setInputTarget(target);
+  icp.setMaxCorrespondenceDistance(corr_dist_);
+  icp.setMaximumIterations(max_iters_);
+  icp.setTransformationEpsilon(tf_epsilon_);
+  icp.setRANSACOutlierRejectionThreshold(ransac_thresh_);
 
   // Align.
-  PointCloud aligned_cloud;
-  icp.align(aligned_cloud, initial_tf.cast<float>());
-  refined_tf = icp.getFinalTransformation().cast<double>();
-}
+  PointCloud aligned_scan;
+  icp.align(aligned_scan);
 
-// Publish transform.
-void UAVLocalization::PublishPose() {
-  geometry_msgs::TransformStamped stamped;
-
-  Eigen::Quaterniond quat(integrated_rotation_);
-  quat.normalize();
-
-  stamped.transform.rotation.x = quat.x();
-  stamped.transform.rotation.y = quat.y();
-  stamped.transform.rotation.z = quat.z();
-  stamped.transform.rotation.w = quat.w();
-  stamped.transform.translation.x = integrated_translation_(0);
-  stamped.transform.translation.y = integrated_translation_(1);
-  stamped.transform.translation.z = integrated_translation_(2);
-
-  stamped.header.stamp = stamp_;
-  stamped.header.frame_id = "world";
-  stamped.child_frame_id = "robot";
-  transform_broadcaster_.sendTransform(stamped);
-}
-
-
-// Publish full scan.
-void UAVLocalization::PublishFullScan(const PointCloud::ConstPtr& cloud) {
-  PointCloud msg = *cloud;
-  msg.header.stamp = stamp_.toNSec() / 1000;
-  msg.header.frame_id = "robot";
-  scan_publisher_full_.publish(msg);
-}
-
-// Publish filtered scan.
-void UAVLocalization::PublishFilteredScan(const PointCloud::Ptr& cloud) {
-  PointCloud msg = *cloud;
-  msg.header.stamp = stamp_.toNSec() / 1000;
-  msg.header.frame_id = "robot";
-  scan_publisher_filtered_.publish(msg);
+  Transform3D refinement(icp.getFinalTransformation().cast<double>());
+  refined_transform_ = refinement * refined_transform_;
 }

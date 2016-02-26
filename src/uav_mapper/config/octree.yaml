@@ -1,0 +1,3 @@
+octree:
+  # Octree max resolution.
+  octree_res: 0.005
