@@ -95,6 +95,7 @@ bool UAVSlam::LoadParameters(const ros::NodeHandle& n) {
   if (!ros::param::get("/uav_slam/io/localized_frame", localized_frame_))
     return false;
 
+
   return true;
 }
 
@@ -131,6 +132,7 @@ void UAVSlam::TimerCallback(const ros::TimerEvent& event) {
     localization_.Localize(cloud);
 
     // Publish.
+    stamp_.fromNSec(cloud->header.stamp * 1000);
     PublishPose(localization_.GetRefinedTransform(), localized_frame_);
     PublishPose(localization_.GetOdometryTransform(), odometry_frame_);
     PublishFullScan(cloud);
