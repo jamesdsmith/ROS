@@ -45,6 +45,8 @@
 
 #include <Eigen/Dense>
 
+typedef Eigen::Matrix<double, 3, 4> Matrix34d;
+
 namespace math {
 
   class Transform3D {
@@ -74,6 +76,12 @@ namespace math {
       tf.block(0, 0, 3, 3) = rotation_;
       tf.block(0, 3, 3, 1) = translation_;
       return tf;
+    }
+    Matrix34d Dehomogenize() const {
+      Matrix34d P;
+      P.block(0, 0, 3, 3) = rotation_;
+      P.block(0, 3, 3, 1) = translation_;
+      return P;
     }
 
     // Setters.
@@ -105,6 +113,9 @@ namespace math {
       Transform3D product(rotation, translation);
       return product;
     }
+    Eigen::Vector3d operator*(const Eigen::Vector3d& rhs) {
+      return rotation_ * rhs + translation_;
+    }
     void operator*=(const Transform3D& rhs) {
       translation_ = rotation_ * rhs.translation_ + translation_;
       rotation_ = rotation_ * rhs.rotation_;
@@ -124,6 +135,12 @@ namespace math {
     bool operator!=(const Transform3D& rhs) {
       return !(rotation_.isApprox(rhs.rotation_, 1e-8) &&
                translation_.isApprox(rhs.translation_, 1e-8));
+    }
+
+    // Other operations.
+    Transform3D Inverse() {
+      Transform3D inv(rotation_.transpose(), -rotation_.transpose() * translation_);
+      return inv;
     }
 
     // Printing.

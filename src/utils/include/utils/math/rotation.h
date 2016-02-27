@@ -52,183 +52,183 @@
 
 namespace math {
 
-using Eigen::Matrix3d;
-using Eigen::Vector3d;
+  using Eigen::Matrix3d;
+  using Eigen::Vector3d;
 
-// Convert from Euler angles to a rotation matrix. Phi, theta, and psi define the
-// angles of the intermediate rotations about x (R_x), y (R_y), and z (R_z)
-// respectively. See https://en.wikipedia.org/wiki/Rotation_matrix.
-Matrix3d EulerAnglesToMatrix(double phi, double theta, double psi);
+  // Convert from Euler angles to a rotation matrix. Phi, theta, and psi define the
+  // angles of the intermediate rotations about x (R_x), y (R_y), and z (R_z)
+  // respectively. See https://en.wikipedia.org/wiki/Rotation_matrix.
+  Matrix3d EulerAnglesToMatrix(double phi, double theta, double psi);
 
-// Same thing as above, but where phi, theta, and psi are specified as a vector.
-Matrix3d EulerAnglesToMatrix(const Vector3d& euler_angles);
+  // Same thing as above, but where phi, theta, and psi are specified as a vector.
+  Matrix3d EulerAnglesToMatrix(const Vector3d& euler_angles);
 
-// Convert from a rotation matrix to Euler angles.
-// From: http://staff.city.ac.uk/~sbbh653/publications/euler.pdf
-// Note that the solution that is returned is only unique when phi, theta, and
-// psi are all < 0.5 * PI. If this is not the case, they will still be correct,
-// but may not be unique!
-Vector3d MatrixToEulerAngles(const Matrix3d& R);
+  // Convert from a rotation matrix to Euler angles.
+  // From: http://staff.city.ac.uk/~sbbh653/publications/euler.pdf
+  // Note that the solution that is returned is only unique when phi, theta, and
+  // psi are all < 0.5 * PI. If this is not the case, they will still be correct,
+  // but may not be unique!
+  Vector3d MatrixToEulerAngles(const Matrix3d& R);
 
-// Get roll angle from a rotation matrix.
-// Just like above, the solution is only unique if roll < 0.5 * PI.
-double Roll(const Matrix3d& R);
+  // Get roll angle from a rotation matrix.
+  // Just like above, the solution is only unique if roll < 0.5 * PI.
+  double Roll(const Matrix3d& R);
 
-// Get pitch angle from a rotation matrix.
-// This solution is unique.
-double Pitch(const Matrix3d& R);
+  // Get pitch angle from a rotation matrix.
+  // This solution is unique.
+  double Pitch(const Matrix3d& R);
 
-// Get yaw angle from a rotation matrix.
-// Just like above, the solution is only unique if yaw < 0.5 * PI.
-double Yaw(const Matrix3d& R);
+  // Get yaw angle from a rotation matrix.
+  // Just like above, the solution is only unique if yaw < 0.5 * PI.
+  double Yaw(const Matrix3d& R);
 
-// Unroll an angle to be \in [0, 2*PI)
-double Unroll(double angle);
+  // Unroll an angle to be \in [0, 2*PI)
+  double Unroll(double angle);
 
-// Normalize an angle to be \in [-PI, PI)
-double Normalize(double angle);
+  // Normalize an angle to be \in [-PI, PI)
+  double Normalize(double angle);
 
-// Computes the shortest distance between two angles on S^1.
-// Found by manipulating the first answer on:
-// stackoverflow.com/questions/1878907/the-smallest-difference-between-2-angles
-double S1Distance(double from, double to);
+  // Computes the shortest distance between two angles on S^1.
+  // Found by manipulating the first answer on:
+  // stackoverflow.com/questions/1878907/the-smallest-difference-between-2-angles
+  double S1Distance(double from, double to);
 
-// Convert from degrees to radians.
-double D2R(double angle);
+  // Convert from degrees to radians.
+  double D2R(double angle);
 
-// Convert from radians to degrees.
-double R2D(double angle);
+  // Convert from radians to degrees.
+  double R2D(double angle);
 
-// An error metric between two rotation matrices on SO3.
-double SO3Error(const Matrix3d& R1, const Matrix3d& R2);
+  // An error metric between two rotation matrices on SO3.
+  double SO3Error(const Matrix3d& R1, const Matrix3d& R2);
 
-// ----------------------------- IMPLEMENTATION -----------------------------------
+  // ----------------------------- IMPLEMENTATION -----------------------------------
 
-// Convert from Euler angles to a rotation matrix. Phi, theta, and psi define the
-// angles of the intermediate rotations about x (R_x), y (R_y), and z (R_z)
-// respectively. See https://en.wikipedia.org/wiki/Rotation_matrix.
-Matrix3d EulerAnglesToMatrix(double phi, double theta, double psi) {
-  double c1 = std::cos(phi);
-  double c2 = std::cos(theta);
-  double c3 = std::cos(psi);
-  double s1 = std::sin(phi);
-  double s2 = std::sin(theta);
-  double s3 = std::sin(psi);
+  // Convert from Euler angles to a rotation matrix. Phi, theta, and psi define the
+  // angles of the intermediate rotations about x (R_x), y (R_y), and z (R_z)
+  // respectively. See https://en.wikipedia.org/wiki/Rotation_matrix.
+  Matrix3d EulerAnglesToMatrix(double phi, double theta, double psi) {
+    double c1 = std::cos(phi);
+    double c2 = std::cos(theta);
+    double c3 = std::cos(psi);
+    double s1 = std::sin(phi);
+    double s2 = std::sin(theta);
+    double s3 = std::sin(psi);
 
-  Matrix3d R;
-  R(0, 0) = c2*c3;
-  R(0, 1) = c3*s1*s2 - c1*s3;
-  R(0, 2) = s1*s3 + c1*c3*s2;
-  R(1, 0) = c2*s3;
-  R(1, 1) = c1*c3 + s1*s2*s3;
-  R(1, 2) = c1*s2*s3 - c3*s1;
-  R(2, 0) = -s2;
-  R(2, 1) = c2*s1;
-  R(2, 2) = c1*c2;
+    Matrix3d R;
+    R(0, 0) = c2*c3;
+    R(0, 1) = c3*s1*s2 - c1*s3;
+    R(0, 2) = s1*s3 + c1*c3*s2;
+    R(1, 0) = c2*s3;
+    R(1, 1) = c1*c3 + s1*s2*s3;
+    R(1, 2) = c1*s2*s3 - c3*s1;
+    R(2, 0) = -s2;
+    R(2, 1) = c2*s1;
+    R(2, 2) = c1*c2;
 
-  return R;
-}
-
-// Same thing as above, but where phi, theta, and psi are specified as a vector.
-Matrix3d EulerAnglesToMatrix(const Vector3d& euler_angles) {
-  return EulerAnglesToMatrix(euler_angles(0), euler_angles(1), euler_angles(2));
-}
-
-// Convert from a rotation matrix to Euler angles.
-// From: http://staff.city.ac.uk/~sbbh653/publications/euler.pdf
-// Note that the solution that is returned is only unique when phi, theta, and
-// psi are all <= 0.5 * PI. If this is not the case, they will still be correct,
-// but may not be unique!
-Vector3d MatrixToEulerAngles(const Matrix3d& R) {
-  // Make sure R is actually a rotation matrix.
-  if (std::abs(R.determinant() - 1) > 1e-4) {
-    LOG(WARNING) << "R does not have a determinant of 1.";
-    return Vector3d::Zero();
+    return R;
   }
 
-  double theta = -std::asin(R(2, 0));
-
-  if (std::abs(cos(theta)) < 1e-8) {
-    LOG(WARNING) << "Theta is approximately +/- PI/2, which yields a "
-                    "singularity. Cannot decompose matrix into Euler angles.";
-    return Vector3d(theta, 0.0, 0.0);
+  // Same thing as above, but where phi, theta, and psi are specified as a vector.
+  Matrix3d EulerAnglesToMatrix(const Vector3d& euler_angles) {
+    return EulerAnglesToMatrix(euler_angles(0), euler_angles(1), euler_angles(2));
   }
 
-  double phi = std::atan2(R(2, 1), R(2, 2));
-  double psi = std::atan2(R(1, 0) / std::cos(theta), R(0, 0) / std::cos(theta));
+  // Convert from a rotation matrix to Euler angles.
+  // From: http://staff.city.ac.uk/~sbbh653/publications/euler.pdf
+  // Note that the solution that is returned is only unique when phi, theta, and
+  // psi are all <= 0.5 * PI. If this is not the case, they will still be correct,
+  // but may not be unique!
+  Vector3d MatrixToEulerAngles(const Matrix3d& R) {
+    // Make sure R is actually a rotation matrix.
+    if (std::abs(R.determinant() - 1) > 1e-4) {
+      LOG(WARNING) << "R does not have a determinant of 1.";
+      return Vector3d::Zero();
+    }
 
-  return Vector3d(phi, theta, psi);
-}
+    double theta = -std::asin(R(2, 0));
 
-// Get roll angle from a rotation matrix.
-// Just like above, the solution will only be unique if roll < 0.5 * PI.
-double Roll(const Matrix3d& R) {
-  double theta = -std::asin(R(2, 0));
-  if (std::abs(std::cos(theta)) < 1e-8)
-    return 0.0;
-  return std::atan2(R(2, 1), R(2, 2));
-}
+    if (std::abs(cos(theta)) < 1e-8) {
+      LOG(WARNING) << "Theta is approximately +/- PI/2, which yields a "
+        "singularity. Cannot decompose matrix into Euler angles.";
+      return Vector3d(theta, 0.0, 0.0);
+    }
 
-// Get pitch angle from a rotation matrix.
-// This solution is unique.
-double Pitch(const Matrix3d& R) {
-  return -std::asin(R(2, 0));
-}
+    double phi = std::atan2(R(2, 1), R(2, 2));
+    double psi = std::atan2(R(1, 0) / std::cos(theta), R(0, 0) / std::cos(theta));
 
-// Get yaw angle from a rotation matrix.
-// Just like above, the solution will only be unique if yaw < 0.5 * PI.
-double Yaw(const Matrix3d& R) {
-  double theta = -std::asin(R(2, 0));
-  if (std::abs(std::cos(theta)) < 1e-8)
-    return 0.0;
-  return std::atan2(R(1, 0) / std::cos(theta), R(0, 0) / std::cos(theta));
-}
+    return Vector3d(phi, theta, psi);
+  }
 
-// Unroll an angle to be \in [0, 2*PI)
-double Unroll(double angle) {
-  angle = fmod(angle, 2.0 * M_PI);
-  if (angle < 0)
-    angle += 2.0 * M_PI;
-  return angle;
-}
+  // Get roll angle from a rotation matrix.
+  // Just like above, the solution will only be unique if roll < 0.5 * PI.
+  double Roll(const Matrix3d& R) {
+    double theta = -std::asin(R(2, 0));
+    if (std::abs(std::cos(theta)) < 1e-8)
+      return 0.0;
+    return std::atan2(R(2, 1), R(2, 2));
+  }
 
-// Normalize an angle to be \in [-PI, PI)
-double Normalize(double angle) {
-  angle = fmod(angle + M_PI, 2.0 * M_PI);
-  if (angle < 0)
-    angle += 2.0 * M_PI;
-  return angle - M_PI;
-}
+  // Get pitch angle from a rotation matrix.
+  // This solution is unique.
+  double Pitch(const Matrix3d& R) {
+    return -std::asin(R(2, 0));
+  }
 
-// Computes the shortest distance between two angles on S^1.
-// Found by manipulating the first answer on:
-// stackoverflow.com/questions/1878907/the-smallest-difference-between-2-angles
-double S1Distance(double from, double to) {
-  double d = Unroll(Unroll(to) - Unroll(from));
-  if (d > M_PI)
-    d -= 2.0*M_PI;
-  return Normalize(d);
-}
+  // Get yaw angle from a rotation matrix.
+  // Just like above, the solution will only be unique if yaw < 0.5 * PI.
+  double Yaw(const Matrix3d& R) {
+    double theta = -std::asin(R(2, 0));
+    if (std::abs(std::cos(theta)) < 1e-8)
+      return 0.0;
+    return std::atan2(R(1, 0) / std::cos(theta), R(0, 0) / std::cos(theta));
+  }
 
-// Convert from degrees to radians.
-double D2R(double angle) {
-  return angle * M_PI / 180.0;
-}
+  // Unroll an angle to be \in [0, 2*PI)
+  double Unroll(double angle) {
+    angle = fmod(angle, 2.0 * M_PI);
+    if (angle < 0)
+      angle += 2.0 * M_PI;
+    return angle;
+  }
 
-// Convert from radians to degrees.
-double R2D(double angle) {
-  return angle * 180.0 / M_PI;
-}
+  // Normalize an angle to be \in [-PI, PI)
+  double Normalize(double angle) {
+    angle = fmod(angle + M_PI, 2.0 * M_PI);
+    if (angle < 0)
+      angle += 2.0 * M_PI;
+    return angle - M_PI;
+  }
 
-// An error metric between two rotation matrices on SO3.
-double SO3Error(const Matrix3d& R1, const Matrix3d& R2) {
-  const Matrix3d R_error = R1.transpose()*R2 - R2.transpose()*R1;
+  // Computes the shortest distance between two angles on S^1.
+  // Found by manipulating the first answer on:
+  // stackoverflow.com/questions/1878907/the-smallest-difference-between-2-angles
+  double S1Distance(double from, double to) {
+    double d = Unroll(Unroll(to) - Unroll(from));
+    if (d > M_PI)
+      d -= 2.0*M_PI;
+    return Normalize(d);
+  }
 
-  // 'vee' is the inverse of the hat operator, and extracts a vector from a
-  // cross-product matrix.
-  const Vector3d R_vee(R_error(2,1), R_error(0,2), R_error(1,0));
-  return (0.5 * R_vee).norm();
-}
+  // Convert from degrees to radians.
+  double D2R(double angle) {
+    return angle * M_PI / 180.0;
+  }
+
+  // Convert from radians to degrees.
+  double R2D(double angle) {
+    return angle * 180.0 / M_PI;
+  }
+
+  // An error metric between two rotation matrices on SO3.
+  double SO3Error(const Matrix3d& R1, const Matrix3d& R2) {
+    const Matrix3d R_error = R1.transpose()*R2 - R2.transpose()*R1;
+
+    // 'vee' is the inverse of the hat operator, and extracts a vector from a
+    // cross-product matrix.
+    const Vector3d R_vee(R_error(2,1), R_error(0,2), R_error(1,0));
+    return (0.5 * R_vee).norm();
+  }
 
 }  //\namespace math
 
