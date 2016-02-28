@@ -97,6 +97,8 @@ class UAVSlam {
   // Time stamp.
   ros::Time stamp_;
 
+  std::string scanner_topic_, filtered_topic_, unfiltered_topic_,
+    world_frame_, odometry_frame_, localized_frame_;
   bool first_step_;
   bool initialized_;
   std::string name_;

@@ -13,6 +13,9 @@
 
         <!-- Mapper parameters -->
         <rosparam file="$(find uav_mapper)/config/octree.yaml"/>
+
+        <!-- I/O parameters -->
+        <rosparam file="$(find uav_slam)/config/io.yaml"/>
   </node>
 
 </launch>
