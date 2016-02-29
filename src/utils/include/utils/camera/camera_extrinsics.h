@@ -116,142 +116,141 @@ public:
   void CameraToWorld(double cx, double cy, double cz,
                      double* wx, double* wy, double* wz) const;
 
-private:
+ private:
   Transform3D world_to_camera_;
 
 };  //\class CameraExtrinsics
 
 // ---------------------------------- IMPLEMENTATION ----------------------------
 
-// Constructor. Initialize to identity.
-CameraExtrinsics::CameraExtrinsics() {
-  world_to_camera_ = Transform3D();
-}
+ // Constructor. Initialize to identity.
+ CameraExtrinsics::CameraExtrinsics() {
+   world_to_camera_ = Transform3D();
+ }
 
-// Constructor. Initialize world_to_camera_ .
-CameraExtrinsics::CameraExtrinsics(const Transform3D& world_to_camera)
-    : world_to_camera_(world_to_camera) {}
+ // Constructor. Initialize world_to_camera_ .
+ CameraExtrinsics::CameraExtrinsics(const Transform3D& world_to_camera)
+   : world_to_camera_(world_to_camera) {}
 
-// Set world_to_camera_.
-void CameraExtrinsics::SetWorldToCamera(const Transform3D& world_to_camera) {
-  world_to_camera_ = world_to_camera;
-}
+ // Set world_to_camera_.
+ void CameraExtrinsics::SetWorldToCamera(const Transform3D& world_to_camera) {
+   world_to_camera_ = world_to_camera;
+ }
 
-// Extract poses.
-Transform3D CameraExtrinsics::WorldToCamera() const {
-  return world_to_camera_;
-}
+ // Extract poses.
+ Transform3D CameraExtrinsics::WorldToCamera() const {
+   return world_to_camera_;
+ }
 
-Transform3D CameraExtrinsics::CameraToWorld() const {
-  return CameraExtrinsics::WorldToCamera().Inverse();
-}
+ Transform3D CameraExtrinsics::CameraToWorld() const {
+   return world_to_camera_.Inverse();
+ }
 
-// For use in the following methods: From H&Z page 156, the extrinsics matrix
-// can be represented as
-//   [R -Rc]
-//   [0  1 ]
-// where c is the camera centroid. From this we get t = -Rc and c = -R't
-void CameraExtrinsics::SetRotation(const Matrix3d& rotation) {
-  const Vector3d t = world_to_camera_.Translation();
-  const Matrix3d R = world_to_camera_.Rotation();
-  const Vector3d c = -R.transpose() * t;
+ // For use in the following methods: From H&Z page 156, the extrinsics matrix
+ // can be represented as
+ //   [R -Rc]
+ //   [0  1 ]
+ // where c is the camera centroid. From this we get t = -Rc and c = -R't
+ void CameraExtrinsics::SetRotation(const Matrix3d& rotation) {
+   const Vector3d t = world_to_camera_.GetTranslation();
+   const Matrix3d R = world_to_camera_.GetRotation();
+   const Vector3d c = -R.transpose() * t;
 
-  world_to_camera_.SetRotation(rotation);
-  world_to_camera_.SetTranslation(-rotation * c);
-}
+   world_to_camera_.SetRotation(rotation);
+   world_to_camera_.SetTranslation(-rotation * c);
+ }
 
-void CameraExtrinsics::SetRotation(double phi, double theta, double psi) {
-  SetRotation(EulerAnglesToMatrix(phi, theta, psi));
-}
+ void CameraExtrinsics::SetRotation(double phi, double theta, double psi) {
+   SetRotation(EulerAnglesToMatrix(phi, theta, psi));
+ }
 
-void CameraExtrinsics::Rotate(const Matrix3d& delta) {
-  const Matrix3d R = world_to_camera_.Rotation();
-  SetRotation(delta * R);
-}
+ void CameraExtrinsics::Rotate(const Matrix3d& delta) {
+   const Matrix3d R = world_to_camera_.GetRotation();
+   SetRotation(delta * R);
+ }
 
-void CameraExtrinsics::Rotate(double dphi, double dtheta, double dpsi) {
-  Rotate(EulerAnglesToMatrix(dphi, dtheta, dpsi));
-}
+ void CameraExtrinsics::Rotate(double dphi, double dtheta, double dpsi) {
+   Rotate(EulerAnglesToMatrix(dphi, dtheta, dpsi));
+ }
 
-Matrix3d CameraExtrinsics::Rotation() const {
-  return world_to_camera_.Rotation();
-}
+ Matrix3d CameraExtrinsics::Rotation() const {
+   return world_to_camera_.GetRotation();
+ }
 
-void CameraExtrinsics::SetTranslation(const Vector3d& translation) {
-  const Matrix3d R = world_to_camera_.Rotation();
-  world_to_camera_.SetTranslation(-R * translation);
-}
+ void CameraExtrinsics::SetTranslation(const Vector3d& translation) {
+   const Matrix3d R = world_to_camera_.GetRotation();
+   world_to_camera_.SetTranslation(-R * translation);
+ }
 
-void CameraExtrinsics::SetTranslation(double x, double y, double z) {
-  SetTranslation(Vector3d(x, y, z));
-}
+ void CameraExtrinsics::SetTranslation(double x, double y, double z) {
+   SetTranslation(Vector3d(x, y, z));
+ }
 
-void CameraExtrinsics::Translate(const Vector3d& delta) {
-  const Vector3d t = world_to_camera_.Translation();
-  const Matrix3d R = world_to_camera_.Rotation();
-  Vector3d c = -R.transpose() * t;
+ void CameraExtrinsics::Translate(const Vector3d& delta) {
+   const Vector3d t = world_to_camera_.GetTranslation();
+   const Matrix3d R = world_to_camera_.GetRotation();
+   Vector3d c = -R.transpose() * t;
 
-  c += delta;
-  world_to_camera_.SetTranslation(-R*c);
-}
+   c += delta;
+   world_to_camera_.SetTranslation(-R*c);
+ }
 
-void CameraExtrinsics::Translate(double dx, double dy, double dz) {
-  Translate(Vector3d(dx, dy, dz));
-}
+ void CameraExtrinsics::Translate(double dx, double dy, double dz) {
+   Translate(Vector3d(dx, dy, dz));
+ }
 
-void CameraExtrinsics::TranslateX(double dx) {
-  Translate(Vector3d(dx, 0, 0));
-}
+ void CameraExtrinsics::TranslateX(double dx) {
+   Translate(Vector3d(dx, 0, 0));
+ }
 
-void CameraExtrinsics::TranslateY(double dy) {
-  Translate(Vector3d(0, dy, 0));
-}
+ void CameraExtrinsics::TranslateY(double dy) {
+   Translate(Vector3d(0, dy, 0));
+ }
 
-void CameraExtrinsics::TranslateZ(double dz) {
-  Translate(Vector3d(0, 0, dz));
-}
+ void CameraExtrinsics::TranslateZ(double dz) {
+   Translate(Vector3d(0, 0, dz));
+ }
 
-Vector3d CameraExtrinsics::Translation() const {
-  const Vector3d t = world_to_camera_.Translation();
-  const Matrix3d R = world_to_camera_.Rotation();
-  return -R.transpose() * t;
-}
+ Vector3d CameraExtrinsics::Translation() const {
+   const Vector3d t = world_to_camera_.GetTranslation();
+   const Matrix3d R = world_to_camera_.GetRotation();
+   return -R.transpose() * t;
+ }
 
-// The extrinsics matrix is 3x4 matrix: [R | t].
-Matrix34d CameraExtrinsics::Rt() const {
-  return WorldToCamera().Dehomogenize();
-}
+ // The extrinsics matrix is 3x4 matrix: [R | t].
+ Matrix34d CameraExtrinsics::Rt() const {
+   return world_to_camera_.Dehomogenize();
+ }
 
-// Convert a world frame point into the camera frame.
-void CameraExtrinsics::WorldToCamera(double wx, double wy, double wz,
-                                     double* cx, double* cy, double* cz) const {
-  CHECK_NOTNULL(cx);
-  CHECK_NOTNULL(cy);
-  CHECK_NOTNULL(cz);
+ // Convert a world frame point into the camera frame.
+ void CameraExtrinsics::WorldToCamera(double wx, double wy, double wz,
+                                      double* cx, double* cy, double* cz) const {
+   CHECK_NOTNULL(cx);
+   CHECK_NOTNULL(cy);
+   CHECK_NOTNULL(cz);
 
-  const Vector4d w_h(wx, wy, wz, 1.0);
-  const Vector4d c_h = CameraExtrinsics::WorldToCamera().Project(w_h);
+   const Vector3d w(wx, wy, wz);
+   const Vector3d c = world_to_camera_ * w;
 
-  *cx = c_h(0);
-  *cy = c_h(1);
-  *cz = c_h(2);
-}
+   *cx = c(0);
+   *cy = c(1);
+   *cz = c(2);
+ }
 
-// Convert a camera frame point into the world frame.
-void CameraExtrinsics::CameraToWorld(double cx, double cy, double cz,
-                                     double* wx, double* wy, double* wz) const {
-  CHECK_NOTNULL(wx);
-  CHECK_NOTNULL(wy);
-  CHECK_NOTNULL(wz);
+ // Convert a camera frame point into the world frame.
+ void CameraExtrinsics::CameraToWorld(double cx, double cy, double cz,
+                                      double* wx, double* wy, double* wz) const {
+   CHECK_NOTNULL(wx);
+   CHECK_NOTNULL(wy);
+   CHECK_NOTNULL(wz);
 
-  const Vector4d c_h(cx, cy, cz, 1.0);
-  const Vector4d w_h = CameraExtrinsics::CameraToWorld().Project(c_h);
+   const Vector3d c(cx, cy, cz);
+   const Vector3d w = CameraExtrinsics::CameraToWorld() * c;
 
-  *wx = w_h(0);
-  *wy = w_h(1);
-  *wz = w_h(2);
-}
-
+   *wx = w(0);
+   *wy = w(1);
+   *wz = w(2);
+ }
 
 }  //\namespace bsfm
 

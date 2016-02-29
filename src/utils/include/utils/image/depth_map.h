@@ -37,9 +37,9 @@
 #ifndef BSFM_DEPTH_MAP_H
 #define BSFM_DEPTH_MAP_H
 
-#include <image/image.h>
-#include <camera/camera.h>
-#include <pose/pose.h>
+#include <utils/image/image.h>
+#include <utils/camera/camera.h>
+#include <utils/math/transform_3d.h>
 
 namespace bsfm {
 
@@ -102,7 +102,7 @@ namespace bsfm {
 
   Camera DepthMap::CreateCamera(const Vector3d& position,
                                 const Matrix3d& rotation ) const {
-    Pose camera_pose(rotation, position);
+    Transform3D camera_pose(rotation, position);
     CameraExtrinsics extrinsics(camera_pose);
 
     //std::cout << "Matrix: " << GetTypeStr() << " " << Width() << "x" << Height() << std::endl;

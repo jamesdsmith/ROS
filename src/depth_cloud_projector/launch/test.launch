@@ -1,0 +1,9 @@
+<launch>
+
+  <node name="depth_cloud_projector"
+        pkg="depth_cloud_projector"
+        type="depth_cloud_projector_node"
+        output="screen">
+  </node>
+
+</launch>
