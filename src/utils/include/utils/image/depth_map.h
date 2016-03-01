@@ -39,7 +39,7 @@
 
 #include <utils/image/image.h>
 #include <Eigen/Dense>
- 
+
 using Eigen::Vector3d;
 
 namespace bsfm {
@@ -92,17 +92,13 @@ namespace bsfm {
   }
 
   Vector3d DepthMap::Unproject(size_t u, size_t v) const {
-    double x = 0.0;
-    double y = 0.0;
-    double z = 0.0;
-
     // @TODO jds: Need to load these from a parameter or something
     double focal_length_x = 248.9;
     double focal_length_y = 247.6;
 
-    z = GetValue(u, v);
-    x = x * z / focal_length_x;
-    y = y * z / focal_length_y;
+    double z = GetValue(u, v);
+    double x = (u - Width() / 2.0) * z / focal_length_x;
+    double y = (v - Height() / 2.0) * z / focal_length_y;
 
     Vector3d point = Vector3d(x, y, z);
     return point;
