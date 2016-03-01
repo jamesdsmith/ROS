@@ -18,8 +18,8 @@
 #include "DJI_guidance.h"
 #include "DJI_utility.h"
 #include "guidance_helpers.h"
-#include "guidance/set_camera_id.h"
-#include "guidance/set_exposure_param.h"
+#include "dji_guidance/set_camera_id.h"
+#include "dji_guidance/set_exposure_param.h"
 
 #include <geometry_msgs/TransformStamped.h> //IMU
 #include <geometry_msgs/Vector3Stamped.h> //velocity
@@ -227,7 +227,7 @@ int my_callback(int data_type, int data_len, char *content)
     return 0;
 }
 
-void set_camera_id_callback(const guidance::set_camera_idConstPtr& msg) {
+void set_camera_id_callback(const dji_guidance::set_camera_idConstPtr& msg) {
     e_vbus_index idx = static_cast<e_vbus_index>(msg->cameraID);
     if(idx >= 0 && idx < CAMERA_PAIR_NUM) {
         std::cout << "Changing camera to: " << idx << std::endl;
@@ -246,7 +246,7 @@ void set_camera_id_callback(const guidance::set_camera_idConstPtr& msg) {
     }
 }
 
-void set_exposure_param_callback(const guidance::set_exposure_paramConstPtr& msg) {
+void set_exposure_param_callback(const dji_guidance::set_exposure_paramConstPtr& msg) {
     if(msg->camera_pair_index != CAMERA_ID) {
         std::cout << "Setting camera exposure parameters for an unselected camera! Setting: " << msg->camera_pair_index << ", Selected: " << CAMERA_ID << std::endl;
     }

@@ -38,8 +38,9 @@
 #define BSFM_DEPTH_MAP_H
 
 #include <utils/image/image.h>
-#include <utils/camera/camera.h>
-#include <utils/math/transform_3d.h>
+#include <Eigen/Dense>
+ 
+using Eigen::Vector3d;
 
 namespace bsfm {
 
@@ -50,35 +51,25 @@ namespace bsfm {
     // Constructors.
     DepthMap();
     DepthMap(bool inverted);
-
-    // Create camera.
-    Camera CreateCamera(const Vector3d& position,
-                        const Matrix3d& rotation) const;
-    Camera CreateCamera(const double X, const double Y, const double Z,
-                        const double Phi, const double Theta,
-                        const double Psi) const;
-
+    
     // Helpers.
     Vector3d Unproject(size_t u, size_t v) const;
     bool SaturatedAt(size_t u, size_t v) const;
 
     // Setters.
     void SetInverted(bool value);
-    void SetCamera(const Camera& camera);
 
     // Getters.
     uchar GetValue(size_t u, size_t v) const;
     bool IsInverted() const;
-    Camera& GetCamera();
 
   private:
-    Camera camera_;
     bool inverted_;
   }; //\ class DepthMap
 
   // ------------------------- IMPLEMENTATION --------------------------------
 
-    DepthMap::DepthMap()
+  DepthMap::DepthMap()
     : inverted_(false) {}
 
   DepthMap::DepthMap(bool inverted)
@@ -100,54 +91,20 @@ namespace bsfm {
     return value;
   }
 
-  Camera DepthMap::CreateCamera(const Vector3d& position,
-                                const Matrix3d& rotation ) const {
-    Transform3D camera_pose(rotation, position);
-    CameraExtrinsics extrinsics(camera_pose);
-
-    //std::cout << "Matrix: " << GetTypeStr() << " " << Width() << "x" << Height() << std::endl;
-
-    // JDS: Not sure how to properly calculate focal length of a point camera.
-    float focal_length = Width() * 0.35/0.36;
-    Matrix3d A;
-    A << focal_length, 0, Width()/2, 0, focal_length, Height()/2, 0, 0, 1;
-
-    CameraIntrinsics intrinsics(A, Width(), Height());
-    Camera camera(extrinsics, intrinsics);
-    return camera;
-  }
-
-  Camera DepthMap::CreateCamera(const double X, const double Y, const double Z,
-                                const double Phi, const double Theta,
-                                const double Psi) const {
-    // Phi, theta, psi = yaw, pitch, roll?
-    Vector3d position(X, Y, Z);
-    Matrix3d rotation = EulerAnglesToMatrix(Phi, Theta, Psi);
-    return CreateCamera(position, rotation);
-  }
-
-  void DepthMap::SetCamera(const Camera& camera) {
-    camera_ = camera;
-  }
-
-  Camera& DepthMap::GetCamera() {
-    return camera_;
-  }
-
   Vector3d DepthMap::Unproject(size_t u, size_t v) const {
-    double cameraX = 0.0;
-    double cameraY = 0.0;
-    double cameraZ = 0.0;
+    double x = 0.0;
+    double y = 0.0;
+    double z = 0.0;
 
-    double worldX = 0.0;
-    double worldY = 0.0;
-    double worldZ = 0.0;
+    // @TODO jds: Need to load these from a parameter or something
+    double focal_length_x = 248.9;
+    double focal_length_y = 247.6;
 
-    camera_.ImageToDirection(u, v, &cameraX, &cameraY);
-    cameraZ = GetValue(u, v) / 256.0;
-    camera_.CameraToWorld(cameraX, cameraY, cameraZ, &worldX, &worldY, &worldZ);
+    z = GetValue(u, v);
+    x = x * z / focal_length_x;
+    y = y * z / focal_length_y;
 
-    Vector3d point = Vector3d(worldX, worldY, worldZ);
+    Vector3d point = Vector3d(x, y, z);
     return point;
   }
 

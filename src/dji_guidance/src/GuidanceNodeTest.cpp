@@ -19,8 +19,8 @@
 #include "DJI_guidance.h"
 #include "DJI_utility.h"
 #include "guidance_helpers.h"
-#include "guidance/set_camera_id.h"
-#include "guidance/set_exposure_param.h"
+#include "dji_guidance/set_camera_id.h"
+#include "dji_guidance/set_exposure_param.h"
 
 #include <geometry_msgs/TransformStamped.h> //IMU
 #include <geometry_msgs/Vector3Stamped.h> //velocity
@@ -172,8 +172,8 @@ int main(int argc, char** argv)
     obstacle_distance_sub  = my_node.subscribe("/guidance/obstacle_distance", 1, obstacle_distance_callback);
     ultrasonic_sub         = my_node.subscribe("/guidance/ultrasonic", 1, ultrasonic_callback);
 
-    set_camera_id_pub      = my_node.advertise<guidance::set_camera_id>(guidance::SET_CAMERA_ID, 10);
-    set_exposure_param_pub = my_node.advertise<guidance::set_exposure_param>(guidance::SET_EXPOSURE_PARAM, 10);
+    set_camera_id_pub      = my_node.advertise<dji_guidance::set_camera_id>(guidance::SET_CAMERA_ID, 10);
+    set_exposure_param_pub = my_node.advertise<dji_guidance::set_exposure_param>(guidance::SET_EXPOSURE_PARAM, 10);
     
     int err_code = 0;
 
@@ -235,7 +235,7 @@ int main(int argc, char** argv)
                 std::cout << "Change camera: " << CAMERA_ID << std::endl;
 
                 // Send change camera id message over to GuidanceNode
-                guidance::set_camera_id msg;
+                dji_guidance::set_camera_id msg;
                 msg.cameraID = CAMERA_ID;
                 set_camera_id_pub.publish(msg);
                 key = 0;
