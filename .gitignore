@@ -8,3 +8,4 @@ msg_gen/
 srv_gen/
 *~
 *.pyc
+.DS_STORE
