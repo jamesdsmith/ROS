@@ -19,13 +19,13 @@
 #include "DJI_guidance.h"
 #include "DJI_utility.h"
 #include "guidance_helpers.h"
-#include "guidance/set_camera_id.h"
-#include "guidance/set_exposure_param.h"
+#include "dji_guidance/set_camera_id.h"
+#include "dji_guidance/set_exposure_param.h"
 
 #include <geometry_msgs/TransformStamped.h> //IMU
 #include <geometry_msgs/Vector3Stamped.h> //velocity
 #include <sensor_msgs/LaserScan.h> //obstacle distance && ultrasonic
-#include "guidance/multi_image.h"
+#include "dji_guidance/multi_image.h"
 
 using namespace cv;
 
@@ -42,7 +42,7 @@ using namespace cv;
 #define HEIGHT 240
 
 /* depth greyscale image */
-void multi_image_callback(const guidance::multi_image::ConstPtr& msg) {
+void multi_image_callback(const dji_guidance::multi_image::ConstPtr& msg) {
     for (auto const& img : msg->images) {
         cv_bridge::CvImagePtr cv_ptr;
         try {

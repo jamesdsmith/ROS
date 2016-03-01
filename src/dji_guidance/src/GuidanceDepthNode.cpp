@@ -18,7 +18,7 @@
 #include "DJI_guidance.h"
 #include "DJI_utility.h"
 #include "guidance_helpers.h"
-#include "guidance/multi_image.h"
+#include "dji_guidance/multi_image.h"
 
 #include <geometry_msgs/TransformStamped.h> //IMU
 #include <geometry_msgs/Vector3Stamped.h> //velocity
@@ -68,8 +68,8 @@ std::ostream& operator<<(std::ostream& out, const e_sdk_err_code value){
     return out << s;
 }
 
-guidance::guidance_image create_image_message(image_data* data, e_vbus_index idx) {
-    guidance::guidance_image img;
+dji_guidance::guidance_image create_image_message(image_data* data, e_vbus_index idx) {
+    dji_guidance::guidance_image img;
     if (data->m_depth_image[idx]) {
         img.vbus_index = idx;
 
@@ -97,7 +97,7 @@ int my_callback(int data_type, int data_len, char *content)
     if (e_image == data_type && NULL != content)
     {        
         image_data* data = (image_data*)content;
-        guidance::multi_image msg;
+        dji_guidance::multi_image msg;
 
         // forward facing guidance sensor is disabled for now...
         //msg.images.push_back(create_image_message(data, e_vbus1));
@@ -159,7 +159,7 @@ int main(int argc, char** argv)
     ros::init(argc, argv, "GuidanceDepthNode");
     ros::NodeHandle my_node;
     
-    image_pub    = my_node.advertise<guidance::multi_image>("/guidance/depth/images",1);
+    image_pub    = my_node.advertise<dji_guidance::multi_image>("/guidance/depth/images",1);
     imu_pub      = my_node.advertise<geometry_msgs::TransformStamped>("/guidance/depth/imu",1);
     velocity_pub = my_node.advertise<geometry_msgs::Vector3Stamped>("/guidance/depth/velocity",1);
 

@@ -43,6 +43,7 @@
 #ifndef DEPTH_CLOUD_PROJECTOR_H
 #define DEPTH_CLOUD_PROJECTOR_H
 
+#include <memory>
 #include <ros/ros.h>
 #include <utils/image/depth_map.h>
 #include <pcl/point_types.h>
@@ -52,7 +53,7 @@
 #include <cmath>
 
 typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
-using namespace math;
+//using namespace math;
 
 class DepthCloudProjector {
  public:
