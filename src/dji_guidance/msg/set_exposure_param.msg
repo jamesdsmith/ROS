@@ -1,0 +1,5 @@
+float32 step
+float32 exposure_time
+uint32 expected_brightness
+uint32 is_auto_exposure
+int32 camera_pair_index
