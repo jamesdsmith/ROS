@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package>
-  <name>depth_cloud_projection</name>
+  <name>depth_cloud_projector</name>
   <version>0.0.0</version>
-  <description>The depth_cloud_projection package. Project a depth map out into a point cloud.</description>
+  <description>The depth_cloud_projector package. Project a depth map out into a point cloud.</description>
 
   <author email="dfk@eecs.berkeley.edu">David Fridovich-Keil</author>
   <maintainer email="dfk@eecs.berkeley.edu">David Fridovich-Keil</maintainer>

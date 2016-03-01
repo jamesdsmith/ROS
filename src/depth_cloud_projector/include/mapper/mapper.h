@@ -31,52 +31,84 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * Please contact the author(s) of this library if you have any questions.
- * Author: David Fridovich-Keil   ( dfk@eecs.berkeley.edu )
+ * Author: James Smith   ( james.smith@berkeley.edu )
  */
 
-///////////////////////////////////////////////////////////////////////////////
-//
-// This defines the DepthCloudProjector class.
-//
-///////////////////////////////////////////////////////////////////////////////
+#ifndef PATH_MAPPER_H
+#define PATH_MAPPER_H
 
-#ifndef DEPTH_CLOUD_PROJECTOR_H
-#define DEPTH_CLOUD_PROJECTOR_H
-
-#include <ros/ros.h>
 #include <utils/image/depth_map.h>
+
+#include <Eigen/Core>
+#include <pcl/io/pcd_io.h>
 #include <pcl/point_types.h>
-#include <pcl_ros/point_cloud.h>
-#include <sensor_msgs/Image.h>
-#include <Eigen/Dense>
-#include <cmath>
+#include <vector>
 
+using namespace bsfm;
 typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
-using namespace math;
 
-class DepthCloudProjector {
- public:
-  explicit DepthCloudProjector();
-  ~DepthCloudProjector();
+class Mapper {
+public:
+  // Constructors.
+  Mapper();
+  Mapper(bool cull_saturated);
 
-  bool Initialize(const ros::NodeHandle& n);
+  // Adding data to the map.
+  PointCloud ProjectDepthMap(const DepthMap& map) const;
+  void AddDepthMap(const DepthMap& map);
 
- private:
-  bool LoadParameters(const ros::NodeHandle& n);
-  bool RegisterCallbacks(const ros::NodeHandle& n);
+  // Getters
+  PointCloud GetMap() const;
 
-  // Callbacks.
-  void DepthMapCallback(const sensor_msgs::Image& map);
-
-  // Publishers/subscribers.
-  ros::Publisher cloud_pub_;
-  ros::Subscriber depth_sub_;
-
-  // Time stamp.
-  ros::Time stamp_;
-
-  bool initialized_;
-  std::string name_;
+private:
+  bool cull_saturated_;
+  PointCloud cloud_;
 };
 
+// ------------------------- IMPLEMENTATION --------------------------------
+
+Mapper::Mapper()
+  : cull_saturated_(true) {}
+
+Mapper::Mapper(bool cull_saturated)
+  : cull_saturated_(cull_saturated) {}
+
+PointCloud Mapper::ProjectDepthMap(const DepthMap& map) const {
+  // Unproject all of the points in the depth map before adding them to the point cloud
+  // The reason is because we dont know how many points exactly we will unproject, 
+  // considering that some of them may be culled.
+  std::vector<Vector3d> points;
+  for (size_t u = 0; u < map.Width(); ++u) {
+    for (size_t v = 0; v < map.Height(); ++v) {
+      if (!cull_saturated_ || !map.SaturatedAt(u, v)) {
+          points.push_back(map.Unproject(u, v));
+        }
+    }
+  }
+
+  PointCloud cloud;
+  cloud.is_dense = false;
+  // TODO: Include sensor orientation information?
+
+  cloud.points.resize(points.size());
+  size_t ii = 0;
+  for (auto const& point : points) {
+      cloud.points[ii].x = point(0);
+      // JDS: Not sure why the projections are coming upside down
+      cloud.points[ii].y = -point(1);
+      cloud.points[ii].z = point(2);
+      ii++;
+  }
+
+  return cloud;
+}
+
+void Mapper::AddDepthMap(const DepthMap& map) {
+  PointCloud cloud = ProjectDepthMap(map);
+  cloud_ = cloud_ + cloud;
+}
+
+PointCloud Mapper::GetMap() const {
+  return cloud_;
+}
 #endif

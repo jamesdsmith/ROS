@@ -41,6 +41,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <depth_cloud_projector/depth_cloud_projector.h>
+#include <mapper/mapper.h>
 
 // Constructor/destructor.
 DepthCloudProjector::DepthCloudProjector() : initialized_(false) {}
@@ -74,17 +75,36 @@ bool DepthCloudProjector::RegisterCallbacks(const ros::NodeHandle& n) {
   ros::NodeHandle node(n);
 
   // Subscriber.
-  subscriber_ =
-    node.subscribe<sensor_msgs::Image>("/guidance", 10,
+  depth_sub_ =
+    node.subscribe<sensor_msgs::Image>("/guidance/depth_image", 10,
                                        &DepthCloudProjector::DepthMapCallback, this);
 
   // Publishers.
-  publisher_ = node.advertise<PointCloud>("/cloud", 10, false);
+  cloud_pub_ = node.advertise<PointCloud>("/cloud", 10, false);
 
   return true;
 }
 
 // Point cloud callback.
 void DepthCloudProjector::DepthMapCallback(const sensor_msgs::Image& map) {
-  // TODO!
+  cv_bridge::CvImagePtr cv_ptr;
+  try {
+    sensor_msgs::Image im = img.image;
+    cv_ptr = cv_bridge::toCvCopy(im, sensor_msgs::image_encodings::MONO16);
+  } catch (cv_bridge::Exception& e) {
+    ROS_ERROR("cv_bridge exception: %s", e.what());
+    return;
+  }
+
+  cv::Mat depth8(320, 240, CV_8UC1);
+  cv_ptr->image.convertTo(depth8, CV_8UC1);
+  
+  DepthMap dm(M);
+  dm.SetInverted(false);
+  Camera c = dm.CreateCamera(0, 0, 0, 0, 0, 0);
+  dm.SetCamera(c);
+  Mapper m(true);
+  
+  PointCloud cl = m.ProjectDepthMap(dm);
+  cloud_pub_.publish(cloud.makeShared());
 }

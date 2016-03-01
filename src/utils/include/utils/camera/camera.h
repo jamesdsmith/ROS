@@ -49,7 +49,7 @@
 #ifndef BSFM_CAMERA_CAMERA_H
 #define BSFM_CAMERA_CAMERA_H
 
-#include <matching/feature_match.h>
+//#include <matching/feature_match.h>
 
 #include "camera_extrinsics.h"
 #include "camera_intrinsics.h"
