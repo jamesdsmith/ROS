@@ -87,7 +87,7 @@ bool DepthCloudProjector::RegisterCallbacks(const ros::NodeHandle& n) {
     node.subscribe("/guidance/depth_image", 10, &DepthCloudProjector::DepthMapCallback, this);
 
   // Publishers.
-  cloud_pub_ = node.advertise<PointCloud>("/cloud", 10, false);
+  cloud_pub_ = node.advertise<PointCloud>("/mapper/cloud", 10, false);
 
   return true;
 }
@@ -110,5 +110,11 @@ void DepthCloudProjector::DepthMapCallback(const sensor_msgs::Image& map) {
   Mapper m(true);
   
   PointCloud cl = m.ProjectDepthMap(dm);
+
+  std::cout << "Projecting " << cl.size() << " points" << std::endl;
+
+  cl.header.frame_id = "guidance";
+  cl.header.stamp = map.header.stamp.toNSec() / 1000;
+
   cloud_pub_.publish(cl.makeShared());
 }
