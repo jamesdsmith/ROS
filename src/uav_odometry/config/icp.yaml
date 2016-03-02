@@ -1,12 +1,12 @@
 icp:
   # RANSAC threshold for ICP.
-  ransac_thresh: 0.05
+  ransac_thresh: 2.5
 
   # Stop ICP after difference in transformation is small enough.
   tf_epsilon: 0.00000001
 
   # Correspondence threshold.
-  corr_dist: 0.05
+  corr_dist: 2.5
 
   # Max number of ICP iterations.
   max_iters: 10
