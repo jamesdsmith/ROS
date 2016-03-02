@@ -95,7 +95,7 @@ PointCloud Mapper::ProjectDepthMap(const DepthMap& map) const {
   for (auto const& point : points) {
       cloud.points[ii].x = point(0);
       // JDS: Not sure why the projections are coming upside down
-      cloud.points[ii].y = -point(1);
+      cloud.points[ii].y = point(1);
       cloud.points[ii].z = point(2);
       ii++;
   }
