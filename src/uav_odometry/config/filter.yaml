@@ -1,6 +1,6 @@
 filter:
   # Filter leaf size.
-  voxel_leaf_size: 2.5
+  voxel_leaf_size: 7.5
 
   # Number of nearest neighbors for SOR.
   sor_knn: 30
