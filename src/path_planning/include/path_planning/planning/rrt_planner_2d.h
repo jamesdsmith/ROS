@@ -46,41 +46,95 @@
 #ifndef PATH_PLANNING_RRT_PLANNER_2D_H
 #define PATH_PLANNING_RRT_PLANNER_2D_H
 
-#include <geometry/trajectory_2d.h>
-#include <geometry/point_2d.h>
-#include <geometry/rrt_2d.h>
-#include <robot/robot_2d_circular.h>
-#include <scene/scene_2d_continuous.h>
-#include <util/types.h>
-#include <util/disallow_copy_and_assign.h>
+#include <path_planning/geometry/trajectory_2d.h>
+#include <path_planning/geometry/point_2d.h>
+#include <path_planning/geometry/rrt_2d.h>
+#include <path_planning/robot/robot_2d_circular.h>
+#include <path_planning/scene/scene_2d_continuous.h>
+#include <utils/types/types.h>
 
-namespace path {
+#include <iostream>
+#include <glog/logging.h>
 
-  // Derived from base class Planner.
-  class RRTPlanner2D {
-  public:
-    RRTPlanner2D(Robot2DCircular& robot, Scene2DContinuous& scene,
-                 Point2D::Ptr origin, Point2D::Ptr goal, float step_size = 0.1)
-      : robot_(robot), scene_(scene),
-        origin_(origin), goal_(goal),
-        step_size_(step_size) {}
-    ~RRTPlanner2D() {}
+// Derived from base class Planner.
+class RRTPlanner2D {
+ public:
+ RRTPlanner2D(Robot2DCircular& robot, Scene2DContinuous& scene,
+              Point2D::Ptr origin, Point2D::Ptr goal, float step_size = 0.1)
+   : robot_(robot), scene_(scene),
+    origin_(origin), goal_(goal),
+    step_size_(step_size) {}
+  ~RRTPlanner2D() {}
 
-    // The algorithm. See header for references.
-    Trajectory2D::Ptr PlanTrajectory();
+  // The algorithm. See header for references.
+  Trajectory2D::Ptr PlanTrajectory();
 
-  private:
-    Robot2DCircular& robot_;
-    Scene2DContinuous& scene_;
-    Point2D::Ptr origin_;
-    Point2D::Ptr goal_;
+ private:
+  Robot2DCircular& robot_;
+  Scene2DContinuous& scene_;
+  Point2D::Ptr origin_;
+  Point2D::Ptr goal_;
 
-    RRT2D tree_;
-    const float step_size_;
+  RRT2D tree_;
+  const float step_size_;
+};
 
-    DISALLOW_COPY_AND_ASSIGN(RRTPlanner2D)
-  };
+// ---------------------------- IMPLEMENTATION ------------------------------- //
 
-} //\ namespace path
+// The algorithm. See header for references.
+Trajectory2D::Ptr RRTPlanner2D::PlanTrajectory() {
+
+  // Check if a path already exists.
+  if (tree_.Contains(goal_))
+    return tree_.GetTrajectory(goal_);
+
+  // Initialize the tree.
+  tree_.Insert(origin_);
+
+  // Algorithm:
+  // 1. Choose a random point.
+  // 2. Take a step toward that point if possible.
+  Point2D::Ptr last_point;
+  while (!tree_.Contains(goal_) && tree_.Size() < 10000) {
+    // Pick a random point in the scene.
+    Point2D::Ptr random_point = scene_.GetRandomPoint();
+
+    // Find nearest point in the tree.
+    Point2D::Ptr nearest = tree_.GetNearest(random_point);
+
+    // Take a step toward the random point.
+    Point2D::Ptr step = Point2D::StepToward(nearest, random_point, step_size_);
+    if (robot_.LineOfSight(nearest, step)) {
+      if (!tree_.Insert(step))
+        VLOG(1) << "Could not insert this point. Skipping.";
+
+      last_point = step;
+    }
+
+    // Insert the goal (stepwise) if it is visible.
+    if (robot_.LineOfSight(step, goal_)) {
+      float distance_to_goal = Point2D::DistancePointToPoint(step, goal_);
+      int num_steps = static_cast<int>(std::ceil(distance_to_goal / step_size_));
+
+      for (int ii = 0; ii < num_steps - 1; ii++) {
+        Point2D::Ptr next = Point2D::StepToward(step, goal_, step_size_);
+
+        if (!tree_.Insert(next, step))
+          VLOG(1) << "Error. Could not insert a point.";
+
+        step = next;
+      }
+
+      // Insert the goal point at the end.
+      if (!tree_.Insert(goal_, step))
+        VLOG(1) << "Error. Could not insert the goal point.";
+
+      last_point = goal_;
+    }
+  }
+
+  // Return the trajectory.
+  return tree_.GetTrajectory(last_point);
+}
 
 #endif

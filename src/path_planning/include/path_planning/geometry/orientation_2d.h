@@ -43,38 +43,75 @@
 #ifndef PATH_PLANNING_ORIENTATION_2D_H
 #define PATH_PLANNING_ORIENTATION_2D_H
 
-#include <geometry/point_2d.h>
-#include <util/types.h>
+#include <path_planning/geometry/point_2d.h>
+#include <utils/types/types.h>
 
 #include <memory>
 #include <glog/logging.h>
 
-namespace path {
+class Orientation2D {
+ public:
+  typedef std::shared_ptr<Orientation2D> Ptr;
 
-  class Orientation2D {
-  public:
-    typedef std::shared_ptr<Orientation2D> Ptr;
+  // Factory method.
+  static Orientation2D::Ptr Create(float x, float y, float theta);
 
-    // Factory method.
-    static Orientation2D::Ptr Create(float x, float y, float theta);
+  // Compute the distance/angle to a 2D point.
+  float DistanceTo(Point2D::Ptr point) const;
+  float AngleTo(Point2D::Ptr point) const;
 
-    // Compute the distance/angle to a 2D point.
-    float DistanceTo(Point2D::Ptr point) const;
-    float AngleTo(Point2D::Ptr point) const;
+  // Getters.
+  Point2D::Ptr GetPoint2D() const;
+  float GetTheta() const;
 
-    // Getters.
-    Point2D::Ptr GetPoint2D() const;
-    float GetTheta() const;
+ private:
+  float x_;
+  float y_;
+  float theta_;
 
-  private:
-    float x_;
-    float y_;
-    float theta_;
-
-    // Constructor.
-    Orientation2D(float x, float y, float theta);
+  // Constructor.
+  Orientation2D(float x, float y, float theta);
 };
 
-} //\ namespace path
+// ---------------------------- IMPLEMENTATION -------------------------- //
+
+  // Factory method.
+  Orientation2D::Ptr Orientation2D::Create(float x, float y, float theta) {
+    Orientation2D::Ptr orientation(new Orientation2D(x, y, theta));
+    return orientation;
+  }
+
+  // Default constructor.
+  Orientation2D::Orientation2D(float x, float y, float theta)
+    : x_(x), y_(y), theta_(theta) {}
+
+  // Getters.
+  Point2D::Ptr Orientation2D::GetPoint2D() const {
+    Point2D::Ptr point = Point2D::Create(x_, y_);
+    return point;
+  }
+
+  float Orientation2D::GetTheta() const {
+    return theta_;
+  }
+
+  // Compute the distance to a 2D point.
+  float Orientation2D::DistanceTo(Point2D::Ptr point) const {
+    CHECK_NOTNULL(point.get());
+
+    float dx = point->x - x_;
+    float dy = point->y - y_;
+    return std::sqrt(dx*dx + dy*dy);
+  }
+
+  // Compute the relative angle to a 2D point.
+  float Orientation2D::AngleTo(Point2D::Ptr point) const {
+    CHECK_NOTNULL(point.get());
+
+    float dx = point->x - x_;
+    float dy = point->y - y_;
+
+    return theta_ - std::atan2(dy, dx);
+  }
 
 #endif

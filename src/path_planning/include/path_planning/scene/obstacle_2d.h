@@ -43,56 +43,150 @@
 #ifndef PATH_PLANNING_OBSTACLE_2D_H
 #define PATH_PLANNING_OBSTACLE_2D_H
 
-#include <geometry/point_2d.h>
-#include <util/types.h>
-#include <util/disallow_copy_and_assign.h>
+#include <path_planning/geometry/point_2d.h>
+#include <utils/types/types.h>
 
 #include <Eigen/Dense>
 #include <memory>
+#include <cmath>
+#include <iostream>
+#include <glog/logging.h>
 
 using Eigen::Matrix2f;
 using Eigen::Vector2f;
 
-namespace path {
+class Obstacle2D {
+ public:
+  typedef std::shared_ptr<Obstacle2D> Ptr;
 
-  class Obstacle2D {
-  public:
-    typedef std::shared_ptr<Obstacle2D> Ptr;
+  // Factory methods.
+  static Obstacle2D::Ptr Create(float x, float y,
+                                float sigma_xx, float sigma_yy,
+                                float sigma_xy, float radius_zscore = 0.05);
+  static Obstacle2D::Ptr Create(float x, float y, float radius);
 
-    // Factory methods.
-    static Obstacle2D::Ptr Create(float x, float y,
-                           float sigma_xx, float sigma_yy,
-                           float sigma_xy, float radius_zscore = 0.05);
-    static Obstacle2D::Ptr Create(float x, float y, float radius);
+  // Getters.
+  Point2D::Ptr GetLocation();
+  float GetRadius();
 
-    // Getters.
-    Point2D::Ptr GetLocation();
-    float GetRadius();
+  // Feasibility, cost, and derivative evaluation.
+  bool IsFeasible(Point2D::Ptr point) const;
+  float Cost(Point2D::Ptr point) const;
+  Point2D::Ptr Derivative(Point2D::Ptr point) const;
 
-    // Feasibility, cost, and derivative evaluation.
-    bool IsFeasible(Point2D::Ptr point) const;
-    float Cost(Point2D::Ptr point) const;
-    Point2D::Ptr Derivative(Point2D::Ptr point) const;
+ private:
+  Vector2f mean_;
+  Matrix2f cov_;
+  float radius_;
+  Point2D::Ptr location_;
 
-  private:
-    Vector2f mean_;
-    Matrix2f cov_;
-    float radius_;
-    Point2D::Ptr location_;
+  // For speed.
+  Matrix2f inv_;
+  float det_;
 
-    // For speed.
-    Matrix2f inv_;
-    float det_;
+  // Default constructors.
+  Obstacle2D(float x, float y,
+             float sigma_xx, float sigma_yy,
+             float sigma_xy, float radius_zscore = 0.05);
+  Obstacle2D(float x, float y, float radius);
+};
 
-    // Default constructors.
-    Obstacle2D(float x, float y,
-               float sigma_xx, float sigma_yy,
-               float sigma_xy, float radius_zscore = 0.05);
-    Obstacle2D(float x, float y, float radius);
+// ---------------------------- IMPLMENTATION --------------------------- //
 
-    DISALLOW_COPY_AND_ASSIGN(Obstacle2D);
-  };
+// Factory methods.
+Obstacle2D::Ptr Obstacle2D::Create(float x, float y,
+                                   float sigma_xx, float sigma_yy,
+                                   float sigma_xy, float radius_zscore) {
+  Obstacle2D::Ptr obstacle(new Obstacle2D(x, y, sigma_xx, sigma_yy, sigma_xy,
+                                          radius_zscore));
+  return obstacle;
+}
 
-} //\ namespace path
+Obstacle2D::Ptr Obstacle2D::Create(float x, float y, float radius) {
+  Obstacle2D::Ptr obstacle(new Obstacle2D(x, y, radius));
+  return obstacle;
+}
+
+// Default constructor.
+Obstacle2D::Obstacle2D(float x, float y,
+                       float sigma_xx, float sigma_yy,
+                       float sigma_xy, float radius_zscore) {
+  // Set mean and covariance.
+  mean_(0) = x;
+  mean_(1) = y;
+  location_ = Point2D::Create(x, y);
+
+  cov_(0, 0) = sigma_xx;
+  cov_(0, 1) = sigma_xy;
+  cov_(1, 0) = sigma_xy;
+  cov_(1, 1) = sigma_yy;
+
+  // Precalculate determinant and inverse.
+  det_ = cov_.determinant();
+  inv_ = cov_.inverse();
+
+  // Determine radius from zscore. Note that the largest eigenvalue of the
+  // covariance matrix is the variance along the principle axis.
+  Eigen::JacobiSVD<Matrix2f> svd(cov_, Eigen::ComputeThinU | Eigen::ComputeThinV);
+  radius_ = radius_zscore * svd.singularValues()(0);
+}
+
+// Radius-based initialization.
+Obstacle2D::Obstacle2D(float x, float y, float radius) {
+  // Set mean and identity covariance.
+  mean_(0) = x;
+  mean_(1) = y;
+  location_ = Point2D::Create(x, y);
+
+  cov_(0, 0) = radius * radius / 3.0;
+  cov_(0, 1) = 0.0;
+  cov_(1, 0) = 0.0;
+  cov_(1, 1) = radius * radius / 3.0;
+
+  // Precalculate determinant and inverse.
+  det_ = cov_.determinant();
+  inv_ = cov_.inverse();
+
+  // Set radius.
+  radius_ = radius;
+}
+
+// Get location.
+Point2D::Ptr Obstacle2D::GetLocation() {
+  return location_;
+}
+
+// Get radius.
+float Obstacle2D::GetRadius() {
+  return radius_;
+}
+
+// Is this point feasible?
+bool Obstacle2D::IsFeasible(Point2D::Ptr point) const {
+  CHECK_NOTNULL(point.get());
+
+  if (Point2D::DistancePointToPoint(point, location_) < radius_)
+    return false;
+  return true;
+}
+
+// What is the cost of occupying this point?
+float Obstacle2D::Cost(Point2D::Ptr point) const {
+  CHECK_NOTNULL(point.get());
+
+  Vector2f query(point->x, point->y);
+  return std::exp(-0.5 * (query - mean_).transpose() * inv_ * (query - mean_)) /
+    std::sqrt((2.0 * M_PI) * (2.0 * M_PI) * det_);
+}
+
+// Derivative of the cost function by position. This is used for
+// trajectory optimization.
+Point2D::Ptr Obstacle2D::Derivative(Point2D::Ptr point) const {
+  CHECK_NOTNULL(point.get());
+
+  Vector2f point_vector(point->x, point->y);
+  Vector2f vector_derivative = -Cost(point) * inv_ * (point_vector - mean_);
+  return Point2D::Create(vector_derivative(0), vector_derivative(1));
+}
 
 #endif

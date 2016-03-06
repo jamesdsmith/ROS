@@ -43,53 +43,75 @@
 #ifndef PATH_PLANNING_NODE_2D_H
 #define PATH_PLANNING_NODE_2D_H
 
-#include <geometry/point_2d.h>
-#include <util/types.h>
-#include <util/disallow_copy_and_assign.h>
+#include <path_planning/geometry/point_2d.h>
+#include <utils/types/types.h>
 
 #include <memory>
 #include <vector>
 #include <glog/logging.h>
 
-namespace path {
+// Helper class for use with a tree class.
+class Node2D {
+ public:
+  typedef std::shared_ptr<Node2D> Ptr;
 
-  // Helper class for use with a tree class.
-  class Node2D {
-  public:
-    typedef std::shared_ptr<Node2D> Ptr;
+  ~Node2D() {}
 
-    ~Node2D() {}
+  // Factory method.
+  static Node2D::Ptr Create(const Point2D::Ptr data);
 
-    // Factory method.
-    static Node2D::Ptr Create(const Point2D::Ptr data);
+  // Add a child.
+  void AddChild(Node2D::Ptr child);
 
-    // Add a child.
-    void AddChild(Node2D::Ptr child);
+  // Set parent.
+  void SetParent(Node2D::Ptr parent);
 
-    // Set parent.
-    void SetParent(Node2D::Ptr parent);
+  // Get children.
+  std::vector<Node2D::Ptr>& GetChildren();
 
-    // Get children.
-    std::vector<Node2D::Ptr>& GetChildren();
+  // Get parent.
+  Node2D::Ptr GetParent();
 
-    // Get parent.
-    Node2D::Ptr GetParent();
+  // Get data.
+  Point2D::Ptr GetData();
 
-    // Get data.
-    Point2D::Ptr GetData();
+ private:
+  Point2D::Ptr data_;
+  Node2D::Ptr parent_;
+  std::vector<Node2D::Ptr> children_;
 
-  private:
-    Point2D::Ptr data_;
-    Node2D::Ptr parent_;
-    std::vector<Node2D::Ptr> children_;
+  // Private constructor. Use the factory method instead.
+ Node2D(const Point2D::Ptr data)
+   : data_(data) {}
+};
 
-    // Private constructor. Use the factory method instead.
-    Node2D(const Point2D::Ptr data)
-      : data_(data) {}
+// ------------------------- IMPLEMENTATION --------------------------------- //
 
-    DISALLOW_COPY_AND_ASSIGN(Node2D);
-  };
+// Factory method.
+Node2D::Ptr Node2D::Create(const Point2D::Ptr data) {
+  Node2D::Ptr node(new Node2D(data));
+  return node;
+}
 
-} //\ namespace path
+// Getters and setters.
+void Node2D::SetParent(Node2D::Ptr parent) {
+  parent_ = parent;
+}
+
+Node2D::Ptr Node2D::GetParent() {
+  return parent_;
+}
+
+void Node2D::AddChild(Node2D::Ptr child) {
+  children_.push_back(child);
+}
+
+std::vector<Node2D::Ptr>& Node2D::GetChildren() {
+  return children_;
+}
+
+Point2D::Ptr Node2D::GetData() {
+  return data_;
+}
 
 #endif

@@ -43,31 +43,71 @@
 #ifndef PATH_PLANNING_ROBOT_2D_CIRCULAR_H
 #define PATH_PLANNING_ROBOT_2D_CIRCULAR_H
 
-#include <util/types.h>
-#include <geometry/point_2d.h>
-#include <scene/scene_2d_continuous.h>
+#include <utils/types/types.h>
+#include <path_planning/geometry/point_2d.h>
+#include <path_planning/scene/scene_2d_continuous.h>
 
-namespace path {
+// Simple 2D circular robot.
+class Robot2DCircular {
+ public:
+ Robot2DCircular(Scene2DContinuous& scene, float radius)
+   : scene_(scene), radius_(radius) {}
+  ~Robot2DCircular() {}
 
-  // Simple 2D circular robot.
-  class Robot2DCircular {
-  public:
-    Robot2DCircular(Scene2DContinuous& scene, float radius)
-      : scene_(scene), radius_(radius) {}
-    ~Robot2DCircular() {}
+  // Test if a particular point is feasible.
+  bool IsFeasible(Point2D::Ptr point);
+  bool LineOfSight(Point2D::Ptr point1, Point2D::Ptr point2) const;
 
-    // Test if a particular point is feasible.
-    bool IsFeasible(Point2D::Ptr point);
-    bool LineOfSight(Point2D::Ptr point1, Point2D::Ptr point2) const;
+ private:
+  Scene2DContinuous& scene_;
+  float radius_;
+};
 
-  private:
-    Scene2DContinuous& scene_;
-    float radius_;
+// ------------------------------ IMPLEMENTATION -------------------------------- //
 
-    DISALLOW_COPY_AND_ASSIGN(Robot2DCircular);
+// Test if a particular robot location is feasible.
+bool Robot2DCircular::IsFeasible(Point2D::Ptr location) {
+  CHECK_NOTNULL(location.get());
 
-  };
+  // Find nearest obstacle.
+  Obstacle2D::Ptr nearest;
+  float nn_distance = -1.0;
+  if (!scene_.GetObstacleTree().NearestNeighbor(location, nearest,
+                                                nn_distance))
+    return false;
 
-} // \namespace path
+  // Check that it is outside the bounding sphere.
+  return nn_distance > radius_ + nearest->GetRadius();;
+}
+
+// Check if there is a valid linear trajectory between these two points.
+bool Robot2DCircular::LineOfSight(Point2D::Ptr point1,
+                                  Point2D::Ptr point2) const {
+  CHECK_NOTNULL(point1.get());
+  CHECK_NOTNULL(point2.get());
+
+  // Check if line segment intersects any nearby obstacle.
+  Point2D::Ptr midpoint = Point2D::MidPoint(point1, point2);
+  float max_distance =
+    radius_ + scene_.GetLargestObstacleRadius() +
+    0.5 * Point2D::DistancePointToPoint(point1, point2);
+
+  FlannObstacle2DTree& obstacle_tree = scene_.GetObstacleTree();
+  std::vector<Obstacle2D::Ptr> obstacles;
+  if (!obstacle_tree.RadiusSearch(midpoint, obstacles, max_distance)) {
+    VLOG(1) << "Radius search failed during LineOfSight() test. "
+            << "Returning false.";
+    return false;
+  }
+
+  for (const auto& obstacle : obstacles) {
+    if (Point2D::DistanceLineToPoint(point1, point2,
+                                     obstacle->GetLocation()) <
+        obstacle->GetRadius() + radius_)
+      return false;
+  }
+
+  return true;
+}
 
 #endif

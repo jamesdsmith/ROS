@@ -43,37 +43,134 @@
 #ifndef PATH_PLANNING_POINT2D_HELPERS_H
 #define PATH_PLANNING_POINT2D_HELPERS_H
 
-#include <util/types.h>
+#include <path_planning/geometry/point_2d.h>
+#include <utils/types/types.h>
 
-namespace path {
+#include <pcl/point_types.h>
+#include <cmath>
 
-  // Helper functions for Point2D.
-  namespace Point2D {
+// Helper functions for Point2D.
+namespace Point2D {
 
-    // Create a Point2D.
-    Point2D::Ptr Create(float x, float y);
+  // Create a Point2D.
+  Point2D::Ptr Create(float x, float y);
 
-    // Midpoint.
-    Point2D::Ptr MidPoint(Point2D::Ptr point1, Point2D::Ptr point2);
+  // Midpoint.
+  Point2D::Ptr MidPoint(Point2D::Ptr point1, Point2D::Ptr point2);
 
-    // Distance between a point and this line segment.
-    float DistanceLineToPoint(Point2D::Ptr point1,
-                                     Point2D::Ptr point2,
-                                     Point2D::Ptr point3);
+  // Distance between a point and this line segment.
+  float DistanceLineToPoint(Point2D::Ptr point1,
+                            Point2D::Ptr point2,
+                            Point2D::Ptr point3);
 
-    // Distance between two points.
-    float DistancePointToPoint(Point2D::Ptr point1,
-                                      Point2D::Ptr point2);
+  // Distance between two points.
+  float DistancePointToPoint(Point2D::Ptr point1,
+                             Point2D::Ptr point2);
 
-    // Take a step toward point2 from point1.
-    Point2D::Ptr StepToward(Point2D::Ptr point1, Point2D::Ptr point2,
-                                   float step_size);
+  // Take a step toward point2 from point1.
+  Point2D::Ptr StepToward(Point2D::Ptr point1, Point2D::Ptr point2,
+                          float step_size);
 
-    // Add two points with a scale factor.
-    Point2D::Ptr Add(Point2D::Ptr point1, Point2D::Ptr point2,
-                            float scale);
-  }; //\ namespace Point2D
+  // Add two points with a scale factor.
+  Point2D::Ptr Add(Point2D::Ptr point1, Point2D::Ptr point2,
+                   float scale);
+}; //\ namespace Point2D
 
-} //\ namespace path
+// --------------------------- IMPLEMENTATION ------------------------------ //
+
+// Create a Point2D.
+Point2D::Ptr Point2D::Create(float x, float y) {
+  Point2D::Ptr point(new pcl::PointXY());
+  point->x = x;
+  point->y = y;
+  return point;
+}
+
+// Midpoint.
+Point2D::Ptr Point2D::MidPoint(Point2D::Ptr point1, Point2D::Ptr point2) {
+  CHECK_NOTNULL(point1.get());
+  CHECK_NOTNULL(point2.get());
+
+  float mid_x = 0.5 * (point1->x + point2->x);
+  float mid_y = 0.5 * (point1->y + point2->y);
+
+  Point2D::Ptr midpoint = Create(mid_x, mid_y);
+  return midpoint;
+}
+
+// Distance between a the line segment between the first two points,
+// and the third point.
+float Point2D::DistanceLineToPoint(Point2D::Ptr point1,
+                                   Point2D::Ptr point2,
+                                   Point2D::Ptr point3) {
+  CHECK_NOTNULL(point1.get());
+  CHECK_NOTNULL(point2.get());
+  CHECK_NOTNULL(point3.get());
+
+  // Get vectors from point1 to point2 and from point1 to point3.
+  float direction_x = point2->x - point1->x;
+  float direction_y = point2->y - point1->y;
+  float direction_length = std::sqrt(direction_x * direction_x +
+                                     direction_y * direction_y);
+  direction_x /= direction_length;
+  direction_y /= direction_length;
+
+  float query_x = point3->x - point1->x;
+  float query_y = point3->y - point1->y;
+  float query_length = std::sqrt(query_x * query_x +
+                                 query_y * query_y);
+
+  // Test if point projects onto line segment.
+  float dot_product = direction_x * query_x + direction_y * query_y;
+  if (dot_product <= direction_length && dot_product >= 0.0) {
+    // Projects onto line segment.
+    return std::sqrt(query_length * query_length -
+                     dot_product * dot_product);
+  } else {
+    // Doesn't project onto the line segment.
+    float dist1 = DistancePointToPoint(point1, point3);
+    float dist2 = DistancePointToPoint(point2, point3);
+    return std::min(dist1, dist2);
+  }
+}
+
+// Distance between two points.
+float Point2D::DistancePointToPoint(Point2D::Ptr point1,
+                                    Point2D::Ptr point2) {
+  CHECK_NOTNULL(point1.get());
+  CHECK_NOTNULL(point2.get());
+
+  float dx = point2->x - point1->x;
+  float dy = point2->y - point1->y;
+  return std::sqrt(dx * dx + dy * dy);
+}
+
+// Take a step toward point2 from point1.
+Point2D::Ptr Point2D::StepToward(Point2D::Ptr point1,
+                                 Point2D::Ptr point2,
+                                 float step_size) {
+  CHECK_NOTNULL(point1.get());
+  CHECK_NOTNULL(point2.get());
+
+  float length = DistancePointToPoint(point1, point2);
+  if (step_size > length)
+    step_size = length;
+
+  float step_x = point1->x + step_size * (point2->x - point1->x) / length;
+  float step_y = point1->y + step_size * (point2->y - point1->y) / length;
+  return Create(step_x, step_y);
+}
+
+// Add two points with a scale factor.
+Point2D::Ptr Point2D::Add(Point2D::Ptr point1,
+                          Point2D::Ptr point2,
+                          float scale) {
+  CHECK_NOTNULL(point1.get());
+  CHECK_NOTNULL(point2.get());
+
+  float sum_x = point1->x + scale * point2->x;
+  float sum_y = point2->y + scale * point2->y;
+  return Create(sum_x, sum_y);
+}
 
 #endif

@@ -52,88 +52,86 @@
 #include <flann/flann.h>
 #include <unordered_map>
 
-namespace path {
+class FlannObstacle2DTree {
+ public:
+  FlannObstacle2DTree() {}
+  ~FlannObstacle2DTree() {}
 
-  class FlannObstacle2DTree {
-  public:
-    FlannObstacle2DTree() {}
-    ~FlannObstacle2DTree() {}
+  // Add obstacles to the index.
+  void AddObstacle(Obstacle2D::Ptr obstacle);
+  void AddObstacles(std::vector<Obstacle2D::Ptr>& obstacles);
 
-    // Add obstacles to the index.
-    void AddObstacle(Obstacle2D::Ptr obstacle);
-    void AddObstacles(std::vector<Obstacle2D::Ptr>& obstacles);
+  // Queries the kd tree for the nearest neighbor of 'query'. Returns whether or
+  // not a nearest neighbor was found, and if it was found, the nearest neighbor
+  // and distance to the nearest neighbor.
+  bool NearestNeighbor(Point2D::Ptr query, Obstacle2D::Ptr& nearest,
+                       float& nn_distance) const;
 
-    // Queries the kd tree for the nearest neighbor of 'query'. Returns whether or
-    // not a nearest neighbor was found, and if it was found, the nearest neighbor
-    // and distance to the nearest neighbor.
-    bool NearestNeighbor(Point2D::Ptr query, Obstacle2D::Ptr& nearest,
-                         float& nn_distance) const;
+  // Queries the kd tree for all neighbors of 'query' within the specified radius.
+  // Returns whether or not the search exited successfully.
+  bool RadiusSearch(Point2D::Ptr query, std::vector<Obstacle2D::Ptr>& neighbors,
+                    float radius) const;
 
-    // Queries the kd tree for all neighbors of 'query' within the specified radius.
-    // Returns whether or not the search exited successfully.
-    bool RadiusSearch(Point2D::Ptr query, std::vector<Obstacle2D::Ptr>& neighbors,
-                      float radius) const;
-
-  private:
-    FlannPoint2DTree kd_tree_;
-    std::unordered_map<Point2D::Ptr, Obstacle2D::Ptr> registry_; // to retrieve obstacle
-  };  //\class FlannObstacle2DTree
+ private:
+  FlannPoint2DTree kd_tree_;
+  std::unordered_map<Point2D::Ptr, Obstacle2D::Ptr> registry_; // to retrieve obstacle
+};  //\class FlannObstacle2DTree
 
 }  //\namespace path
 
 // ------------------------ IMPLEMENTATION ------------------------------------ //
 
-  // Add obstacles to the index.
-  void FlannObstacle2DTree::AddObstacle(Obstacle2D::Ptr obstacle) {
-    CHECK_NOTNULL(obstacle.get());
+// Add obstacles to the index.
+void FlannObstacle2DTree::AddObstacle(Obstacle2D::Ptr obstacle) {
+  CHECK_NOTNULL(obstacle.get());
 
-    Point2D::Ptr location = obstacle->GetLocation();
-    kd_tree_.AddPoint(location);
-    registry_.emplace(location, obstacle);
-  }
+  Point2D::Ptr location = obstacle->GetLocation();
+  kd_tree_.AddPoint(location);
+  registry_.emplace(location, obstacle);
+}
 
-  void FlannObstacle2DTree::AddObstacles(std::vector<Obstacle2D::Ptr>& obstacles) {
-    for (auto& obstacle : obstacles)
-      AddObstacle(obstacle);
-  }
+void FlannObstacle2DTree::AddObstacles(std::vector<Obstacle2D::Ptr>& obstacles) {
+  for (auto& obstacle : obstacles)
+    AddObstacle(obstacle);
+}
 
-  // Queries the kd tree for the nearest neighbor of 'query'. Returns whether or
-  // not a nearest neighbor was found, and if it was found, the nearest neighbor
-  // and distance to the nearest neighbor. Note that index is based on the 
-  // order in which obstacles were added with AddObstacle() and AddObstacles().
-  bool FlannObstacle2DTree::NearestNeighbor(Point2D::Ptr query,
-                                            Obstacle2D::Ptr& nearest,
-                                            float& nn_distance) const {
-    CHECK_NOTNULL(query.get());
+// Queries the kd tree for the nearest neighbor of 'query'. Returns whether or
+// not a nearest neighbor was found, and if it was found, the nearest neighbor
+// and distance to the nearest neighbor. Note that index is based on the 
+// order in which obstacles were added with AddObstacle() and AddObstacles().
+bool FlannObstacle2DTree::NearestNeighbor(Point2D::Ptr query,
+                                          Obstacle2D::Ptr& nearest,
+                                          float& nn_distance) const {
+  CHECK_NOTNULL(query.get());
 
-    // Query kd_tree_.
-    Point2D::Ptr nearest_point;
-    if (!kd_tree_.NearestNeighbor(query, nearest_point, nn_distance))
-      return false;
+  // Query kd_tree_.
+  Point2D::Ptr nearest_point;
+  if (!kd_tree_.NearestNeighbor(query, nearest_point, nn_distance))
+    return false;
 
-    // Map from point back to obstacle.
-    nearest = registry_.at(nearest_point);
-    return true;
-  }
+  // Map from point back to obstacle.
+  nearest = registry_.at(nearest_point);
+  return true;
+}
 
-  // Queries the kd tree for all neighbors of 'query' within the specified radius.
-  // Returns whether or not the search exited successfully.
-  bool FlannObstacle2DTree::RadiusSearch(Point2D::Ptr query,
-                                         std::vector<Obstacle2D::Ptr>& neighbors,
-                                         float radius) const {
-    CHECK_NOTNULL(query.get());
+// Queries the kd tree for all neighbors of 'query' within the specified radius.
+// Returns whether or not the search exited successfully.
+bool FlannObstacle2DTree::RadiusSearch(Point2D::Ptr query,
+                                       std::vector<Obstacle2D::Ptr>& neighbors,
+                                       float radius) const {
+  CHECK_NOTNULL(query.get());
 
-    // Query kd_tree_.
-    std::vector<Point2D::Ptr> nearest_points;
-    if (!kd_tree_.RadiusSearch(query, nearest_points, radius))
-      return false;
+  // Query kd_tree_.
+  std::vector<Point2D::Ptr> nearest_points;
+  if (!kd_tree_.RadiusSearch(query, nearest_points, radius))
+    return false;
 
-    // Map from point back to obstacle.
-    neighbors.clear();
-    for (size_t ii = 0; ii < nearest_points.size(); ii++)
-      neighbors.push_back(registry_.at(nearest_points[ii]));
+  // Map from point back to obstacle.
+  neighbors.clear();
+  for (size_t ii = 0; ii < nearest_points.size(); ii++)
+    neighbors.push_back(registry_.at(nearest_points[ii]));
 
-    return true;
-  }
+  return true;
+}
 
 #endif
