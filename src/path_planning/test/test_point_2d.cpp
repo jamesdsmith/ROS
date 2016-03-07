@@ -31,37 +31,44 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * Please contact the author(s) of this library if you have any questions.
- * Authors: Erik Nelson            ( eanelson@eecs.berkeley.edu )
- *          David Fridovich-Keil   ( dfk@eecs.berkeley.edu )
+ * Authors: David Fridovich-Keil   ( dfk@eecs.berkeley.edu )
  */
 
-///////////////////////////////////////////////////////////////////////////////
-//
-// This file defines typedefs for generic types and primitives used for SfM.
-//
-// ////////////////////////////////////////////////////////////////////////////
+#include <path_planning/geometry/point_2d.h>
+#include <utils/types/types.h>
+#include <utils/math/random_generator.h>
 
-#ifndef UTILS_TYPES_TYPES_H
-#define UTILS_TYPES_TYPES_H
-
-#include <pcl/point_types.h>
-#include <Eigen/Core>
-#include <limits>
 #include <vector>
-#include <memory>
+#include <cmath>
+#include <gtest/gtest.h>
+#include <glog/logging.h>
 
-// -------------------- Custom types -------------------- //
-namespace Point2D {
-  typedef std::shared_ptr<::pcl::PointXY> Ptr;
+// Test that we can construct and destroy a bunch of 2D points.
+TEST(Point2DHelpers, TestPoint2D) {
+  math::RandomGenerator rng(0);
+
+  for (size_t ii = 0; ii < 1000; ++ii) {
+    float x1 = rng.Double();
+    float y1 = rng.Double();
+    Point2D::Ptr point1 = Point2D::Create(x1, y1);
+
+    float x2 = x1 + 0.1 * rng.DoubleUniform(-1.0, 1.0);
+    float y2 = y1 + 0.1 * rng.DoubleUniform(-1.0, 1.0);
+    Point2D::Ptr point2 = Point2D::Create(x2, y2);
+
+    EXPECT_NEAR(Point2D::DistancePointToPoint(point1, point2),
+                0.0, 0.1 * std::sqrt(2.0));
+  }
 }
 
-namespace Point3D {
-  typedef std::shared_ptr<::pcl::PointXYZ> Ptr;
+int main(int argc, char** argv) {
+  std::string log_file = GENERATED_TEST_DATA_DIR + std::string("/out.log");
+  google::SetLogDestination(0, log_file.c_str());
+  FLAGS_logtostderr = true;
+  FLAGS_minloglevel = 1;
+  google::InitGoogleLogging(argv[0]);
+  ::testing::InitGoogleTest(&argc, argv);
+  LOG(INFO) << "Running all tests.";
+  return RUN_ALL_TESTS();
 }
 
-// -------------------- Third-party typedefs -------------------- //
-// Used to represent [R | t] and P, the camera extrinsics and projection
-// matrices.
-typedef ::Eigen::Matrix<double, 3, 4> Matrix34d;
-
-#endif

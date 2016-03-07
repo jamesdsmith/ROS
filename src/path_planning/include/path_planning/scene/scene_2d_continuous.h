@@ -60,6 +60,8 @@
 using Eigen::MatrixXf;
 using Eigen::Vector2d;
 
+using namespace bsfm;
+
 // Derived class to model 2D continuous scenes.
 class Scene2DContinuous {
  public:

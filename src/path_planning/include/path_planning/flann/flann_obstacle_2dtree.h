@@ -77,8 +77,6 @@ class FlannObstacle2DTree {
   std::unordered_map<Point2D::Ptr, Obstacle2D::Ptr> registry_; // to retrieve obstacle
 };  //\class FlannObstacle2DTree
 
-}  //\namespace path
-
 // ------------------------ IMPLEMENTATION ------------------------------------ //
 
 // Add obstacles to the index.

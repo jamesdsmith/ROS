@@ -47,6 +47,7 @@
 #include <utils/types/types.h>
 
 #include <pcl/point_types.h>
+#include <glog/logging.h>
 #include <cmath>
 
 // Helper functions for Point2D.

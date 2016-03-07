@@ -31,37 +31,63 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * Please contact the author(s) of this library if you have any questions.
- * Authors: Erik Nelson            ( eanelson@eecs.berkeley.edu )
- *          David Fridovich-Keil   ( dfk@eecs.berkeley.edu )
+ * Authors: David Fridovich-Keil   ( dfk@eecs.berkeley.edu )
  */
 
-///////////////////////////////////////////////////////////////////////////////
-//
-// This file defines typedefs for generic types and primitives used for SfM.
-//
-// ////////////////////////////////////////////////////////////////////////////
+#include <path_planning/geometry/trajectory_2d.h>
+#include <path_planning/geometry/point_2d.h>
+#include <utils/types/types.h>
+#include <utils/math/random_generator.h>
 
-#ifndef UTILS_TYPES_TYPES_H
-#define UTILS_TYPES_TYPES_H
-
-#include <pcl/point_types.h>
-#include <Eigen/Core>
-#include <limits>
 #include <vector>
-#include <memory>
+#include <cmath>
+#include <gtest/gtest.h>
+#include <glog/logging.h>
+#include <iostream>
 
-// -------------------- Custom types -------------------- //
-namespace Point2D {
-  typedef std::shared_ptr<::pcl::PointXY> Ptr;
+// Test that we can construct and destroy a Trajectory.
+TEST(Trajectory2D, TestTrajectory) {
+  math::RandomGenerator rng(0);
+
+  // Empty Trajectory.
+  Trajectory2D::Ptr path1 = Trajectory2D::Create();
+
+  // Vector of Points.
+  std::vector<Point2D::Ptr> points;
+  Point2D::Ptr last_point;
+  double length = 0.0;
+
+  // Make a bunch of points.
+  for (size_t ii = 0; ii < 1000; ++ii) {
+    float x = rng.Double();
+    float y = rng.Double();
+    Point2D::Ptr point = Point2D::Create(x, y);
+
+    // Keep track of length for comparison.
+    if (ii != 0)
+      length += Point2D::DistancePointToPoint(last_point, point);
+
+    // Add to path and vector.
+    path1->AddPoint(point);
+    points.push_back(point);
+    last_point = point;
+  }
+
+  // Make second Trajectory from vector.
+  Trajectory2D::Ptr path2 = Trajectory2D::Create(points);
+
+  // Checks lengths.
+  EXPECT_NEAR(path1->GetLength(), path2->GetLength(), 1e-8);
+  EXPECT_NEAR(path2->GetLength(), length, 1e-8);
 }
 
-namespace Point3D {
-  typedef std::shared_ptr<::pcl::PointXYZ> Ptr;
+int main(int argc, char** argv) {
+  std::string log_file = GENERATED_TEST_DATA_DIR + std::string("/out.log");
+  google::SetLogDestination(0, log_file.c_str());
+  FLAGS_logtostderr = true;
+  FLAGS_minloglevel = 1;
+  google::InitGoogleLogging(argv[0]);
+  ::testing::InitGoogleTest(&argc, argv);
+  LOG(INFO) << "Running all tests.";
+  return RUN_ALL_TESTS();
 }
-
-// -------------------- Third-party typedefs -------------------- //
-// Used to represent [R | t] and P, the camera extrinsics and projection
-// matrices.
-typedef ::Eigen::Matrix<double, 3, 4> Matrix34d;
-
-#endif
