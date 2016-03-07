@@ -208,7 +208,7 @@ Image::Image(const Image& other) : grayscale_(false) {
    } else {
      grayscale_ = false;
      image_ = std::shared_ptr<cv::Mat>(
-                                       new cv::Mat(width, height, CV_32FC3, CV_RGB(0.f, 0.f, 0.f)));
+                 new cv::Mat(width, height, CV_32FC3, CV_RGB(0.f, 0.f, 0.f)));
    }
  }
 
