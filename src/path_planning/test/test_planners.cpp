@@ -36,57 +36,80 @@
 
 #include <path_planning/geometry/trajectory_2d.h>
 #include <path_planning/geometry/point_2d.h>
+#include <path_planning/planning/rrt_planner_2d.h>
+#include <path_planning/robot/robot_2d_circular.h>
 #include <utils/math/random_generator.h>
 #include <path_planning/scene/scene_2d_continuous.h>
 #include <path_planning/scene/obstacle_2d.h>
 #include <utils/image/image.h>
+#include <utils/types/types.h>
 
 #include <vector>
 #include <cmath>
 #include <gtest/gtest.h>
 #include <glog/logging.h>
-#include <gflags/gflags.h>
 #include <iostream>
-#include <Eigen/Dense>
 
-#define VISUALIZE false
+#define VISUALIZE true
 
-using Eigen::MatrixXf;
-
-// Test that we can construct and destroy a scene.
-TEST(Scene2DContinuous, TestScene2DContinuous) {
-  math::RandomGenerator rng(0);
+// Test that we can plan a RRT path in 2D.
+TEST(RRTPlanner2D, TestRRTPlanner2D) {
+  math::RandomGenerator rng(math::RandomGenerator::Seed());
 
   // Create a bunch of obstacles.
   std::vector<Obstacle2D::Ptr> obstacles;
-  for (size_t ii = 0; ii < 10; ii++) {
+  for (size_t ii = 0; ii < 200; ii++) {
     float x = rng.Double();
     float y = rng.Double();
-    float sigma_xx = 0.005 * rng.DoubleUniform(0.25, 0.75);
-    float sigma_yy = 0.005 * rng.DoubleUniform(0.25, 0.75);
-    float sigma_xy = rng.Double() * std::sqrt(sigma_xx * sigma_yy);
+    float radius = static_cast<float>(rng.DoubleUniform(0.01, 0.02));
 
-    Obstacle2D::Ptr obstacle =
-      Obstacle2D::Create(x, y, sigma_xx, sigma_yy, sigma_xy, 3.0);
+    Obstacle2D::Ptr obstacle = Obstacle2D::Create(x, y, radius);
     obstacles.push_back(obstacle);
   }
 
   // Create a 2D continous scene.
   Scene2DContinuous scene(0.0, 1.0, 0.0, 1.0, obstacles);
 
+  // Create a robot.
+  Robot2DCircular robot(scene, 0.01);
+
+  // Choose origin/goal.
+  Point2D::Ptr origin, goal;
+  while (!origin) {
+    float x = static_cast<float>(rng.Double());
+    float y = static_cast<float>(rng.Double());
+    Point2D::Ptr point = Point2D::Create(x, y);
+
+    if (robot.IsFeasible(point))
+      origin = point;
+  }
+  while (!goal) {
+    float x = static_cast<float>(rng.Double());
+    float y = static_cast<float>(rng.Double());
+    Point2D::Ptr point = Point2D::Create(x, y);
+
+    if (robot.IsFeasible(point) &&
+        Point2D::DistancePointToPoint(origin, point) > 0.4)
+      goal = point;
+  }
+
+  // Plan a route.
+  RRTPlanner2D planner(robot, scene, origin, goal, 0.05);
+  Trajectory2D::Ptr route = planner.PlanTrajectory();
+
   // If visualize flag is set, query a grid and show the cost map.
   if (VISUALIZE) {
-    scene.Visualize("Cost map");
+    scene.Visualize("RRT route", route);
   }
 }
 
-// Test that we can create a Trajectory in the Scene.
-TEST(Scene2DContinuous, TestScene2DContinuousTrajectory) {
-  math::RandomGenerator rng(0);
+// Test that we can construct and destroy a scene.
+TEST(RRTPlanner2D, TestOptimizePath2D) {
+  math::RandomGenerator rng(math::RandomGenerator::Seed());
 
   // Create a bunch of obstacles.
   std::vector<Obstacle2D::Ptr> obstacles;
-  for (size_t ii = 0; ii < 10; ii++) {
+  for (size_t ii = 0; ii < 100; ii++) {
     float x = rng.Double();
     float y = rng.Double();
     float sigma_xx = 0.005 * rng.DoubleUniform(0.25, 0.75);
@@ -102,23 +125,46 @@ TEST(Scene2DContinuous, TestScene2DContinuousTrajectory) {
   // Create a 2D continous scene.
   Scene2DContinuous scene(0.0, 1.0, 0.0, 1.0, obstacles);
 
-  // Create a Trajectory.
-  Trajectory2D::Ptr path = Trajectory2D::Create();
-  for (size_t ii = 0; ii < 20; ii++) {
-    float x = 0.5 + 0.25 * std::cos(2.0 * M_PI *
-                                    static_cast<double>(ii) / 20.0) +
-      rng.DoubleUniform(-0.05, 0.05);
-    float y = 0.5 + 0.25 * std::sin(2.0 * M_PI *
-                                    static_cast<double>(ii) / 20.0) +
-      rng.DoubleUniform(-0.05, 0.05);
+  // Create a robot.
+  Robot2DCircular robot(scene, 0.005);
 
+  // Choose origin/goal.
+  Point2D::Ptr origin, goal;
+  while (!origin) {
+    float x = static_cast<float>(rng.Double());
+    float y = static_cast<float>(rng.Double());
     Point2D::Ptr point = Point2D::Create(x, y);
-    path->AddPoint(point);
+
+    if (robot.IsFeasible(point))
+      origin = point;
   }
+  while (!goal) {
+    float x = static_cast<float>(rng.Double());
+    float y = static_cast<float>(rng.Double());
+    Point2D::Ptr point = Point2D::Create(x, y);
+
+    if (robot.IsFeasible(point) &&
+        Point2D::DistancePointToPoint(origin, point) > 0.8)
+      goal = point;
+  }
+
+  // Plan a route.
+  RRTPlanner2D planner(robot, scene, origin, goal, 0.05);
+  Trajectory2D::Ptr route = planner.PlanTrajectory();
+  route->Upsample(4);
 
   // If visualize flag is set, query a grid and show the cost map.
   if (VISUALIZE) {
-    scene.Visualize("Trajectory", path);
+    scene.Visualize("RRT route", route);
+  }
+
+  // Optimize path.
+  Trajectory2D::Ptr optimized_path =
+    scene.OptimizeTrajectory(route, 1e-3, 1e6, 1e-3, 5e-4, 1000);
+
+  // If visualize flag is set, query a grid and show the cost map.
+  if (VISUALIZE) {
+    scene.Visualize("Smoothed route", optimized_path);
   }
 }
 

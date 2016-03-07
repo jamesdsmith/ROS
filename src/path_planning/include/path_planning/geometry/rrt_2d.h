@@ -80,8 +80,6 @@ class RRT2D {
   Node2D::Ptr head_;
   std::unordered_map<Point2D::Ptr, Node2D::Ptr> registry_;
   FlannPoint2DTree kd_tree_;
-
-  DISALLOW_COPY_AND_ASSIGN(RRT2D);
 };
 
 // ------------------------- IMPLEMENTATION ------------------------------- //
