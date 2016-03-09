@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package>
-  <name>utils</name>
+  <name>path_planning</name>
   <version>0.0.0</version>
   <description>The utils package</description>
 
@@ -11,7 +11,7 @@
   <buildtool_depend>catkin</buildtool_depend>
 
   <build_depend>roscpp</build_depend>  
-  <build_depend>pcl_ros</build_depend>
+  <build_depend>utils</build_depend>
   <run_depend>roscpp</run_depend>
-  <run_depend>pcl_ros</run_depend>
+  <run_depend>utils</run_depend>
 </package>

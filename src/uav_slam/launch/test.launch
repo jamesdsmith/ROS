@@ -1,4 +1,5 @@
 <launch>
+  <param name="use_sim_time" value="true"/>
 
   <node name="uav_slam"
         pkg="uav_slam"
@@ -16,6 +17,12 @@
 
         <!-- I/O parameters -->
         <rosparam file="$(find uav_slam)/config/io.yaml"/>
+  </node>
+
+  <node name="transform"
+        pkg="tf"
+        type="static_transform_publisher"
+        args="0 0 0 0 0 -1.5707 fixed world 30">
   </node>
 
 </launch>

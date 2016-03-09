@@ -1,17 +1,16 @@
 <?xml version="1.0"?>
 <package>
-  <name>utils</name>
+  <name>pose_filter</name>
   <version>0.0.0</version>
-  <description>The utils package</description>
+  <description>The pose_filter package</description>
 
   <author email="dfk@eecs.berkeley.edu">David Fridovich-Keil</author>
   <maintainer email="dfk@eecs.berkeley.edu">David Fridovich-Keil</maintainer>
-  <license>GPL</license>
+  <license>none</license>
 
   <buildtool_depend>catkin</buildtool_depend>
 
-  <build_depend>roscpp</build_depend>  
-  <build_depend>pcl_ros</build_depend>
+  <build_depend>roscpp</build_depend>
+
   <run_depend>roscpp</run_depend>
-  <run_depend>pcl_ros</run_depend>
 </package>
