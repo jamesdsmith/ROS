@@ -1,5 +1,6 @@
 <launch>
   <param name="use_sim_time" value="true"/>
+  <arg name="octomap" default="true"/>
 
   <node name="uav_slam"
         pkg="uav_slam"
@@ -18,6 +19,22 @@
         <!-- I/O parameters -->
         <rosparam file="$(find uav_slam)/config/io.yaml"/>
   </node>
+
+  <group if="$(arg octomap)">
+
+         <!-- Octomap server -->
+         <node pkg="octomap_server"
+               name="octomap_server"
+               type="octomap_server_node"
+               output="screen">
+
+               <!-- Topics -->
+               <remap from="cloud_in" to="/uav_slam/filtered"/>
+
+               <!-- Parameters -->
+               <rosparam file="$(find uav_slam)/config/octomap.yaml"/>
+         </node>
+  </group>
 
   <node name="transform"
         pkg="tf"
