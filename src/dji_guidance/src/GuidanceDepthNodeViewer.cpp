@@ -65,7 +65,7 @@ int main(int argc, char** argv)
     ros::init(argc, argv, "GuidanceDepthNodeViewer");
     ros::NodeHandle my_node;
 
-    multi_image_sub = my_node.subscribe("/guidance/depth/images",  10, multi_image_callback);
+    multi_image_sub = my_node.subscribe("/guidance/depth_images",  10, multi_image_callback);
     
     int err_code = 0;
 

@@ -51,6 +51,7 @@
 #include <sensor_msgs/Image.h>
 #include <Eigen/Dense>
 #include <cmath>
+#include <dji_guidance/multi_image.h>
 
 typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
 //using namespace math;
@@ -68,6 +69,9 @@ class DepthCloudProjector {
 
   // Callbacks.
   void DepthMapCallback(const sensor_msgs::Image& map);
+  void MultiImageCallback(const dji_guidance::multi_image::ConstPtr& msg);
+
+  Eigen::Matrix3d GetRotationFor(int index);
 
   // Publishers/subscribers.
   ros::Publisher cloud_pub_;

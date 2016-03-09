@@ -50,6 +50,12 @@
 #include <opencv/cv.h>
 #include <pcl/point_types.h>
 #include <pcl_ros/point_cloud.h>
+#include <pcl/common/transforms.h>
+#include <utils/math/transform_3d.h>
+#include <utils/math/rotation.h>
+#include <math.h>
+
+#define DEG_TO_RAD(x) x * M_PI / 180.0f
 
 // Constructor/destructor.
 DepthCloudProjector::DepthCloudProjector() : initialized_(false) {}
@@ -118,4 +124,58 @@ void DepthCloudProjector::DepthMapCallback(const sensor_msgs::Image& map) {
   cl.header.stamp = map.header.stamp.toNSec() / 1000;
 
   cloud_pub_.publish(cl.makeShared());
+}
+
+void DepthCloudProjector::MultiImageCallback(const dji_guidance::multi_image::ConstPtr& msg) {
+  PointCloud cl;
+  for (auto const& img : msg->images) {
+    cv_bridge::CvImagePtr cv_ptr;
+    try {
+      sensor_msgs::Image im = img.image;
+      cv_ptr = cv_bridge::toCvCopy(im, sensor_msgs::image_encodings::MONO16);
+    } catch (cv_bridge::Exception& e) {
+      ROS_ERROR("cv_bridge exception: %s", e.what());
+      return;
+    }
+
+    cv::Mat depth8(320, 240, CV_8UC1);
+    cv_ptr->image.convertTo(depth8, CV_8UC1);
+    
+    DepthMap dm(depth8);
+    dm.SetInverted(false);
+    Mapper m(true);
+
+    PointCloud projection = m.ProjectDepthMap(dm);
+
+    math::Transform3D tform;
+    Eigen::Matrix3d rotation = GetRotationFor(img.vbus_index);
+    tform.SetRotation(rotation);
+    //math::Transform3D tform;;
+    PointCloud transformed;
+    pcl::transformPointCloud(projection, transformed, tform.GetTransform());
+
+    cl = cl + projection;
+    cl.header.frame_id = "guidance";
+    cl.header.stamp = cv_ptr->header.stamp.toNSec() / 1000;
+  }
+  std::cout << "Projected " << cl.size() << " points" << std::endl;
+  cloud_pub_.publish(cl.makeShared());
+}
+
+Eigen::Matrix3d DepthCloudProjector::GetRotationFor(int index) {
+  /*
+  1 front on M100
+  2 right on M100
+  3 rear  on M100
+  4 left  on M100
+  0 down  on M100
+  */
+  switch (index) {
+    case 2: return math::EulerAnglesToMatrix(0, 0, DEG_TO_RAD(90));
+    case 3: return math::EulerAnglesToMatrix(0, 0, DEG_TO_RAD(180));
+    case 4: return math::EulerAnglesToMatrix(0, 0, DEG_TO_RAD(270));
+    case 0: return math::EulerAnglesToMatrix(0, DEG_TO_RAD(90), 0);
+    case 1:
+    default: return math::EulerAnglesToMatrix(0, 0, 0);
+  }
 }

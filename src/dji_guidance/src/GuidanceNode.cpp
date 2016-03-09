@@ -20,6 +20,7 @@
 #include "guidance_helpers.h"
 #include "dji_guidance/set_camera_id.h"
 #include "dji_guidance/set_exposure_param.h"
+#include "dji_guidance/multi_image.h"
 
 #include <geometry_msgs/TransformStamped.h> //IMU
 #include <geometry_msgs/Vector3Stamped.h> //velocity
@@ -33,6 +34,7 @@ ros::Publisher imu_pub;
 ros::Publisher obstacle_distance_pub;
 ros::Publisher velocity_pub;
 ros::Publisher ultrasonic_pub;
+ros::Publisher image_pub;
 
 ros::Subscriber set_camera_id_sub;
 ros::Subscriber set_exposure_param_sub;
@@ -57,6 +59,18 @@ Mat             depth8(HEIGHT, WIDTH, CV_8UC1);
 Mat             g_disparity(HEIGHT,WIDTH,CV_16SC1);
 Mat             disparity8(HEIGHT, WIDTH, CV_8UC1);
 
+// Avoid looking from the same camera twice in a row if possible (it isnt)
+int sequence_index = 0;
+#define SEQUENCE_COUNT 6
+e_vbus_index camera_pair_sequence[6][2] = {
+    {e_vbus2, e_vbus3},
+    {e_vbus4, e_vbus5},
+    {e_vbus2, e_vbus4},
+    {e_vbus3, e_vbus5},
+    {e_vbus2, e_vbus5},
+    {e_vbus3, e_vbus4},
+};
+
 std::ostream& operator<<(std::ostream& out, const e_sdk_err_code value){
     const char* s = 0;
     static char str[100]={0};
@@ -80,6 +94,44 @@ std::ostream& operator<<(std::ostream& out, const e_sdk_err_code value){
 #undef PROCESS_VAL
 
     return out << s;
+}
+
+dji_guidance::guidance_image create_image_message(image_data* data, e_vbus_index idx) {
+    dji_guidance::guidance_image img;
+    if (data->m_depth_image[idx]) {
+        img.vbus_index = idx;
+
+        memcpy(g_depth.data, data->m_depth_image[idx], IMAGE_SIZE * 2);
+        cv_bridge::CvImage depth_16;
+        g_depth.copyTo(depth_16.image);
+        depth_16.header.frame_id = "guidance";
+        depth_16.header.stamp = ros::Time::now();
+        depth_16.encoding = sensor_msgs::image_encodings::MONO16;
+
+        img.image = *(depth_16.toImageMsg());
+
+        return img;
+    } else {
+        std::cout << "Attempted to build an image message for an unsubscribed image channel " << idx << std::endl;
+        return img;
+    }
+}
+
+// make sure that the data we are looking for in the current sequence is in the image_data
+bool check_sequence_data(image_data* data) {
+    return data->m_depth_image[camera_pair_sequence[sequence_index][0]]
+        && data->m_depth_image[camera_pair_sequence[sequence_index][1]];
+}
+
+void select_camera_pair(int index) {
+    int err_code = select_depth_image(camera_pair_sequence[index][0]);
+    if (err_code) {
+        std::cout << "Could not select camera " << camera_pair_sequence[index][0] << std::endl;
+    }
+    err_code = select_depth_image(camera_pair_sequence[index][1]);
+    if (err_code) {
+        std::cout << "Could not select camera " << camera_pair_sequence[index][1] << std::endl;
+    }
 }
 
 int my_callback(int data_type, int data_len, char *content)
@@ -113,18 +165,21 @@ int my_callback(int data_type, int data_len, char *content)
             right_8.encoding     = sensor_msgs::image_encodings::MONO8;
             right_image_pub.publish(right_8.toImageMsg());
         }
-        if ( data->m_depth_image[CAMERA_ID] ){
-            memcpy(g_depth.data, data->m_depth_image[CAMERA_ID], IMAGE_SIZE * 2);
-            //g_depth.convertTo(depth8, CV_8UC1);
-            //imshow("depth", depth8);
-            //publish depth image
-            cv_bridge::CvImage depth_16;
-            g_depth.copyTo(depth_16.image);
-            depth_16.header.frame_id  = "guidance";
-            depth_16.header.stamp     = ros::Time::now();
-            depth_16.encoding     = sensor_msgs::image_encodings::MONO16;
-            depth_image_pub.publish(depth_16.toImageMsg());
-        }
+        // disabling the old depth image because its going to be too hard to sync CAMERA_ID with the
+        // new sequence system. I am leaving this here until we do the node rewrite so that I can 
+        // reference it during the rewrite if we want to change it to publish single depth images
+        // if ( data->m_depth_image[CAMERA_ID] ){
+        //     memcpy(g_depth.data, data->m_depth_image[CAMERA_ID], IMAGE_SIZE * 2);
+        //     //g_depth.convertTo(depth8, CV_8UC1);
+        //     //imshow("depth", depth8);
+        //     //publish depth image
+        //     cv_bridge::CvImage depth_16;
+        //     g_depth.copyTo(depth_16.image);
+        //     depth_16.header.frame_id  = "guidance";
+        //     depth_16.header.stamp     = ros::Time::now();
+        //     depth_16.encoding     = sensor_msgs::image_encodings::MONO16;
+        //     depth_image_pub.publish(depth_16.toImageMsg());
+        // }
         if ( data->m_disparity_image[CAMERA_ID] ){
             memcpy(g_disparity.data, data->m_disparity_image[CAMERA_ID], IMAGE_SIZE * 2);
             //g_disparity.convertTo(disparity8, CV_8UC1);
@@ -136,6 +191,20 @@ int my_callback(int data_type, int data_len, char *content)
             disparity_16.header.stamp     = ros::Time::now();
             disparity_16.encoding         = sensor_msgs::image_encodings::MONO16;
             disparity_image_pub.publish(disparity_16.toImageMsg());
+        }
+
+        // Publish a multi_image of depth data
+        if (check_sequence_data(data)) {
+            dji_guidance::multi_image msg;
+
+            msg.images.push_back(create_image_message(data, camera_pair_sequence[sequence_index][0]));
+            msg.images.push_back(create_image_message(data, camera_pair_sequence[sequence_index][1]));
+
+            // select next camera pairs in the sequence
+            sequence_index = (sequence_index + 1) % SEQUENCE_COUNT;
+            select_camera_pair(sequence_index);
+
+            image_pub.publish(msg);
         }
     }
 
@@ -238,7 +307,6 @@ void set_camera_id_callback(const dji_guidance::set_camera_idConstPtr& msg) {
         CAMERA_ID = idx;
         select_greyscale_image(CAMERA_ID, true);
         select_greyscale_image(CAMERA_ID, false);
-        select_depth_image(CAMERA_ID);
         select_disparity_image(CAMERA_ID);
 
         err_code = start_transfer();
@@ -269,6 +337,7 @@ int main(int argc, char** argv)
     velocity_pub            = my_node.advertise<geometry_msgs::Vector3Stamped>("/guidance/velocity",1);
     obstacle_distance_pub   = my_node.advertise<sensor_msgs::LaserScan>("/guidance/obstacle_distance",1);
     ultrasonic_pub          = my_node.advertise<sensor_msgs::LaserScan>("/guidance/ultrasonic",1);
+    image_pub               = my_node.advertise<dji_guidance::multi_image>("/guidance/depth_images",1);
 
     set_camera_id_sub       = my_node.subscribe(guidance::SET_CAMERA_ID, 10, set_camera_id_callback);
     set_exposure_param_sub  = my_node.subscribe(guidance::SET_EXPOSURE_PARAM, 10, set_exposure_param_callback);
@@ -303,10 +372,10 @@ int main(int argc, char** argv)
     RETURN_IF_ERR(err_code);
     err_code = select_greyscale_image(CAMERA_ID, false);
     RETURN_IF_ERR(err_code);
-    err_code = select_depth_image(CAMERA_ID);
-    RETURN_IF_ERR(err_code);
     err_code = select_disparity_image(CAMERA_ID);
     RETURN_IF_ERR(err_code);
+
+    select_camera_pair(sequence_index);
 
     select_imu();
     select_ultrasonic();
