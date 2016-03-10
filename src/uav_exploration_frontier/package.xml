@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<package>
+  <name>uav_exploration_frontier</name>
+  <version>0.0.0</version>
+  <description>The uav_slam package. Estimate current position against the global map, using odometry as the initial guess.</description>
+
+  <author email="dfk@eecs.berkeley.edu">David Fridovich-Keil</author>
+  <maintainer email="dfk@eecs.berkeley.edu">David Fridovich-Keil</maintainer>
+  <license>GPL</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <build_depend>roscpp</build_depend>
+  <build_depend>sensor_msgs</build_depend>
+  <build_depend>geometry_msgs</build_depend>
+  <build_depend>octomap</build_depend>
+  
+  <run_depend>roscpp</run_depend>
+  <run_depend>sensor_msgs</run_depend>
+  <run_depend>geometry_msgs</run_depend>
+  <run_depend>octomap</run_depend>
+</package>
