@@ -46,6 +46,8 @@ using namespace cv;
 #define HEIGHT 240
 #define IMAGE_SIZE (HEIGHT * WIDTH)
 
+//#define DEBUG_MSG
+
 // for setting exposure
 char            key       = 0;
 e_vbus_index    CAMERA_ID = get_default_camera_id();
@@ -168,18 +170,18 @@ int my_callback(int data_type, int data_len, char *content)
         // disabling the old depth image because its going to be too hard to sync CAMERA_ID with the
         // new sequence system. I am leaving this here until we do the node rewrite so that I can 
         // reference it during the rewrite if we want to change it to publish single depth images
-        // if ( data->m_depth_image[CAMERA_ID] ){
-        //     memcpy(g_depth.data, data->m_depth_image[CAMERA_ID], IMAGE_SIZE * 2);
-        //     //g_depth.convertTo(depth8, CV_8UC1);
-        //     //imshow("depth", depth8);
-        //     //publish depth image
-        //     cv_bridge::CvImage depth_16;
-        //     g_depth.copyTo(depth_16.image);
-        //     depth_16.header.frame_id  = "guidance";
-        //     depth_16.header.stamp     = ros::Time::now();
-        //     depth_16.encoding     = sensor_msgs::image_encodings::MONO16;
-        //     depth_image_pub.publish(depth_16.toImageMsg());
-        // }
+        if ( data->m_depth_image[CAMERA_ID] ){
+            memcpy(g_depth.data, data->m_depth_image[CAMERA_ID], IMAGE_SIZE * 2);
+            //g_depth.convertTo(depth8, CV_8UC1);
+            //imshow("depth", depth8);
+            //publish depth image
+            cv_bridge::CvImage depth_16;
+            g_depth.copyTo(depth_16.image);
+            depth_16.header.frame_id  = "guidance";
+            depth_16.header.stamp     = ros::Time::now();
+            depth_16.encoding     = sensor_msgs::image_encodings::MONO16;
+            depth_image_pub.publish(depth_16.toImageMsg());
+        }
         if ( data->m_disparity_image[CAMERA_ID] ){
             memcpy(g_disparity.data, data->m_disparity_image[CAMERA_ID], IMAGE_SIZE * 2);
             //g_disparity.convertTo(disparity8, CV_8UC1);
@@ -194,26 +196,28 @@ int my_callback(int data_type, int data_len, char *content)
         }
 
         // Publish a multi_image of depth data
-        if (check_sequence_data(data)) {
-            dji_guidance::multi_image msg;
+        // if (check_sequence_data(data)) {
+        //     dji_guidance::multi_image msg;
 
-            msg.images.push_back(create_image_message(data, camera_pair_sequence[sequence_index][0]));
-            msg.images.push_back(create_image_message(data, camera_pair_sequence[sequence_index][1]));
+        //     msg.images.push_back(create_image_message(data, camera_pair_sequence[sequence_index][0]));
+        //     msg.images.push_back(create_image_message(data, camera_pair_sequence[sequence_index][1]));
 
-            // select next camera pairs in the sequence
-            sequence_index = (sequence_index + 1) % SEQUENCE_COUNT;
-            select_camera_pair(sequence_index);
+        //     // select next camera pairs in the sequence
+        //     sequence_index = (sequence_index + 1) % SEQUENCE_COUNT;
+        //     select_camera_pair(sequence_index);
 
-            image_pub.publish(msg);
-        }
+        //     image_pub.publish(msg);
+        // }
     }
 
     /* imu */
     if ( e_imu == data_type && NULL != content )
     {
         imu *imu_data = (imu*)content;
+#if DEBUG_MSG
         printf( "frame index: %d, stamp: %d\n", imu_data->frame_index, imu_data->time_stamp );
         printf( "imu: [%f %f %f %f %f %f %f]\n", imu_data->acc_x, imu_data->acc_y, imu_data->acc_z, imu_data->q[0], imu_data->q[1], imu_data->q[2], imu_data->q[3] );
+#endif
     
         // publish imu data
         geometry_msgs::TransformStamped g_imu;
@@ -232,9 +236,11 @@ int my_callback(int data_type, int data_len, char *content)
     if ( e_velocity == data_type && NULL != content )
     {
         velocity *vo = (velocity*)content;
+#if DEBUG_MSG
         printf( "frame index: %d, stamp: %d\n", vo->frame_index, vo->time_stamp );
         printf( "vx:%f vy:%f vz:%f\n", 0.001f * vo->vx, 0.001f * vo->vy, 0.001f * vo->vz );
-    
+#endif
+
         // publish velocity
         geometry_msgs::Vector3Stamped g_vo;
         g_vo.header.frame_id = "guidance";
@@ -249,6 +255,7 @@ int my_callback(int data_type, int data_len, char *content)
     if ( e_obstacle_distance == data_type && NULL != content )
     {
         obstacle_distance *oa = (obstacle_distance*)content;
+#if DEBUG_MSG
         printf( "frame index: %d, stamp: %d\n", oa->frame_index, oa->time_stamp );
         printf( "obstacle distance:" );
         for ( int i = 0; i < CAMERA_PAIR_NUM; ++i )
@@ -256,6 +263,7 @@ int my_callback(int data_type, int data_len, char *content)
             printf( " %f ", 0.01f * oa->distance[i] );
         }
         printf( "\n" );
+#endif
 
         // publish obstacle distance
         sensor_msgs::LaserScan g_oa;
@@ -271,11 +279,13 @@ int my_callback(int data_type, int data_len, char *content)
     if ( e_ultrasonic == data_type && NULL != content )
     {
         ultrasonic_data *ultrasonic = (ultrasonic_data*)content;
+#if DEBUG_MSG
         printf( "frame index: %d, stamp: %d\n", ultrasonic->frame_index, ultrasonic->time_stamp );
         for ( int d = 0; d < CAMERA_PAIR_NUM; ++d )
         {
             printf( "ultrasonic distance: %f, reliability: %d\n", ultrasonic->ultrasonic[d] * 0.001f, (int)ultrasonic->reliability[d] );
         }
+#endif
     
         // publish ultrasonic data
         sensor_msgs::LaserScan g_ul;
@@ -371,6 +381,8 @@ int main(int argc, char** argv)
     err_code = select_greyscale_image(CAMERA_ID, true);
     RETURN_IF_ERR(err_code);
     err_code = select_greyscale_image(CAMERA_ID, false);
+    RETURN_IF_ERR(err_code);
+    err_code = select_depth_image(CAMERA_ID);
     RETURN_IF_ERR(err_code);
     err_code = select_disparity_image(CAMERA_ID);
     RETURN_IF_ERR(err_code);
