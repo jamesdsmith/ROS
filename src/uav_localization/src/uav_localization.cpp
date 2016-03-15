@@ -127,14 +127,11 @@ void UAVLocalization::Localize(const PointCloud::ConstPtr& scan) {
     const Transform3D incremental_transform = odometry_->GetIntegratedTransform();
     odometry_transform_ *= incremental_transform;
     refined_transform_ *= incremental_transform;
-
-    // Transform cloud into world frame.
-    Eigen::Matrix4d initial_tf = refined_transform_.GetTransform();
-    pcl::transformPointCloud(*scan, *transformed, initial_tf);
-  } else {
-    // Just set transformed to scan.
-    *transformed = *scan;
   }
+
+  // Transform cloud into world frame.
+  Eigen::Matrix4d initial_tf = refined_transform_.GetTransform();
+  pcl::transformPointCloud(*scan, *transformed, initial_tf);
 
   // Do fine alignment.
   if (mapper_->Size() > 0) {

@@ -39,7 +39,7 @@
          </node>
   </group>
 
-  <!--node name="transform"
+  <node name="transform"
         pkg="tf"
         type="static_transform_publisher"
         args="0 0 0 0 0 -1.5707 fixed world 30">
