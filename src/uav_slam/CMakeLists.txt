@@ -12,9 +12,11 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   geometry_msgs
   pcl_ros
+  tf2_ros
   uav_odometry
   uav_mapper
   uav_localization
+  point_cloud_filter
 )
 
 catkin_package(
@@ -25,9 +27,11 @@ catkin_package(
     sensor_msgs
     geometry_msgs
     pcl_ros
+    tf2_ros
     uav_odometry
     uav_mapper
     uav_localization
+    point_cloud_filter 
 )
 
 include_directories(include ${catkin_INCLUDE_DIRS})

@@ -36,72 +36,26 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-// This defines the UAVSlam class.
+// This defines the point_cloud_filter node.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#ifndef UAV_SLAM_H
-#define UAV_SLAM_H
-
 #include <ros/ros.h>
-#include <message_synchronizer/message_synchronizer.h>
-#include <utils/math/transform_3d.h>
-#include <uav_odometry/uav_odometry.h>
-#include <uav_mapper/uav_mapper.h>
-#include <uav_localization/uav_localization.h>
-#include <sensor_msgs/PointCloud2.h>
-#include <pcl/point_types.h>
-#include <pcl_ros/point_cloud.h>
-#include <Eigen/Dense>
-#include <cmath>
+#include <point_cloud_filter/point_cloud_filter.h>
 
-typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
-using namespace math;
+int main(int argc, char** argv) {
+  // Generate a new node.
+  ros::init(argc, argv, "point_cloud_filter");
+  ros::NodeHandle n("~");
 
-class UAVSlam {
- public:
-  explicit UAVSlam();
-  ~UAVSlam();
+  // Initialize a new PointCloudFilter.
+  PointCloudFilter filter;
+  if (!filter.Initialize(n)) {
+    ROS_ERROR("%s: Failed to initialize PointCloudFilter.",
+              ros::this_node::getName().c_str());
+    return EXIT_FAILURE;
+  }
 
-  bool Initialize(const ros::NodeHandle& n);
-
- private:
-  bool LoadParameters(const ros::NodeHandle& n);
-  bool RegisterCallbacks(const ros::NodeHandle& n);
-
-  // Callbacks.
-  void AddPointCloudCallback(const PointCloud::ConstPtr& cloud);
-  void TimerCallback(const ros::TimerEvent& event);
-
-  // Publish.
-  void PublishPose(const Transform3D& transform,
-                   const std::string& child_frame_id);
-  void PublishFullScan(const PointCloud::ConstPtr& cloud);
-  void PublishFilteredScan(const PointCloud::Ptr& cloud);
-
-  // Member variables.
-  UAVOdometry odometry_;
-  UAVMapper mapper_;
-  UAVLocalization localization_;
-
-  // Subscribers.
-  ros::Subscriber point_cloud_subscriber_;
-  ros::Timer timer_;
-  MessageSynchronizer<PointCloud::ConstPtr> synchronizer_;
-
-  // Publishers.
-  ros::Publisher scan_publisher_full_;
-  ros::Publisher scan_publisher_filtered_;
-  tf2_ros::TransformBroadcaster transform_broadcaster_;
-
-  // Time stamp.
-  ros::Time stamp_;
-
-  std::string scanner_topic_, filtered_topic_, unfiltered_topic_,
-    world_frame_, odometry_frame_, localized_frame_;
-  bool first_step_;
-  bool initialized_;
-  std::string name_;
-};
-
-#endif
+  ros::spin();
+  return EXIT_SUCCESS;
+}

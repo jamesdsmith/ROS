@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package>
-  <name>uav_exploration_frontier</name>
+  <name>point_cloud_filter</name>
   <version>0.0.0</version>
-  <description>The uav_slam package. Estimate current position against the global map, using odometry as the initial guess.</description>
+  <description>The point_cloud_filter package. Filter incoming point clouds.</description>
 
   <author email="dfk@eecs.berkeley.edu">David Fridovich-Keil</author>
   <maintainer email="dfk@eecs.berkeley.edu">David Fridovich-Keil</maintainer>
@@ -12,11 +12,10 @@
 
   <build_depend>roscpp</build_depend>
   <build_depend>sensor_msgs</build_depend>
-  <build_depend>geometry_msgs</build_depend>
-  <build_depend>octomap</build_depend>
-  
+  <build_depend>pcl_ros</build_depend>
+
   <run_depend>roscpp</run_depend>
   <run_depend>sensor_msgs</run_depend>
-  <run_depend>geometry_msgs</run_depend>
-  <run_depend>octomap</run_depend>
+  <run_depend>pcl_ros</run_depend>
 </package>
+

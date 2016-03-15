@@ -36,61 +36,40 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-// This defines the uav_localization node.
+// This defines the PointCloudFilter class.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#ifndef UAV_LOCALIZATION_H
-#define UAV_LOCALIZATION_H
+#ifndef POINT_CLOUD_FILTER_H
+#define POINT_CLOUD_FILTER_H
 
 #include <ros/ros.h>
-#include <message_synchronizer/message_synchronizer.h>
-#include <utils/math/transform_3d.h>
-#include <uav_odometry/uav_odometry.h>
-#include <uav_mapper/uav_mapper.h>
-
 #include <sensor_msgs/PointCloud2.h>
 #include <pcl/point_types.h>
-#include <pcl/octree/octree_search.h>
 #include <pcl_ros/point_cloud.h>
-#include <Eigen/Dense>
+#include <pcl/filters/voxel_grid.h>
+#include <pcl/filters/statistical_outlier_removal.h>
 #include <cmath>
 
 typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
-using namespace math;
 
-class UAVLocalization {
+class PointCloudFilter {
  public:
-  explicit UAVLocalization();
-  ~UAVLocalization();
+  PointCloudFilter();
+  ~PointCloudFilter();
 
-  bool Initialize(const ros::NodeHandle& n,
-                  UAVMapper *mapper, UAVOdometry *odometry);
+  bool Initialize(const ros::NodeHandle& n);
 
-  // Localize against the map.
-  void Localize(const PointCloud::ConstPtr& cloud);
-
-  // Get transforms.
-  Transform3D& GetRefinedTransform();
-  Transform3D& GetOdometryTransform();
+  // Filter the incoming point cloud.
+  PointCloud::Ptr Filter(const PointCloud::ConstPtr& cloud);
 
  private:
   bool LoadParameters(const ros::NodeHandle& n);
   bool RegisterCallbacks(const ros::NodeHandle& n);
 
-  // Refine initial guess.
-  void RefineTransformation(const PointCloud::Ptr& target,
-                            const PointCloud::Ptr& source);
-
-  // Member variables.
-  UAVMapper *mapper_;
-  UAVOdometry *odometry_;
-  Transform3D refined_transform_;
-  Transform3D odometry_transform_;
-
-  double ransac_thresh_, tf_epsilon_, corr_dist_;
-  int max_iters_;
-  bool initialized_, rough_alignment_;
+  double voxel_leaf_size_, sor_zscore_;
+  int sor_knn_;
+  bool initialized_;
   std::string name_;
 };
 

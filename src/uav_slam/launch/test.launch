@@ -11,14 +11,17 @@
         <rosparam file="$(find uav_odometry)/config/icp.yaml"/>
 
         <!-- Filter parameters -->
-        <rosparam file="$(find uav_odometry)/config/filter.yaml"/>
+        <rosparam file="$(find point_cloud_filter)/config/filter.yaml"/>
 
         <!-- Mapper parameters -->
         <rosparam file="$(find uav_mapper)/config/octree.yaml"/>
 
         <!-- I/O parameters -->
         <rosparam file="$(find uav_slam)/config/io.yaml"/>
-  </node>
+
+        <!-- Localization parameters -->
+        <rosparam file="$(find uav_localization)/config/parameters.yaml"/>
+</node>
 
   <group if="$(arg octomap)">
 
@@ -36,7 +39,7 @@
          </node>
   </group>
 
-  <node name="transform"
+  <!--node name="transform"
         pkg="tf"
         type="static_transform_publisher"
         args="0 0 0 0 0 -1.5707 fixed world 30">

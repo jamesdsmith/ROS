@@ -46,13 +46,12 @@
 #include <ros/ros.h>
 #include <message_synchronizer/message_synchronizer.h>
 #include <utils/math/transform_3d.h>
+
 #include <sensor_msgs/PointCloud2.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <pcl/point_types.h>
 #include <pcl_ros/point_cloud.h>
 #include <pcl/registration/gicp.h>
-#include <pcl/filters/voxel_grid.h>
-#include <pcl/filters/statistical_outlier_removal.h>
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
 #include <cmath>

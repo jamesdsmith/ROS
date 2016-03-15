@@ -14,15 +14,19 @@
   <build_depend>sensor_msgs</build_depend>
   <build_depend>geometry_msgs</build_depend>
   <build_depend>pcl_ros</build_depend>
+  <build_depend>tf2_ros</build_depend>
   <build_depend>uav_odometry</build_depend>
   <build_depend>uav_mapper</build_depend>
   <build_depend>uav_localization</build_depend>
-  
+  <build_depend>point_cloud_filter</build_depend>
+
   <run_depend>roscpp</run_depend>
   <run_depend>sensor_msgs</run_depend>
   <run_depend>geometry_msgs</run_depend>
   <run_depend>pcl_ros</run_depend>
+  <run_depend>tf2_ros</run_depend>
   <run_depend>uav_odometry</run_depend>
   <run_depend>uav_mapper</run_depend>
   <run_depend>uav_localization</run_depend>
+  <run_depend>point_cloud_filter</run_depend>
 </package>

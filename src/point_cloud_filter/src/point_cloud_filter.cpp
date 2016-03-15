@@ -36,26 +36,67 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-// This defines the uav_slam node.
+// Defining the PointCloudFilter class.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <ros/ros.h>
-#include <uav_slam/uav_slam.h>
+#include <point_cloud_filter/point_cloud_filter.h>
 
-int main(int argc, char** argv) {
-  // Generate a new node.
-  ros::init(argc, argv, "uav_slam");
-  ros::NodeHandle n("~");
+// Constructor/destructor.
+PointCloudFilter::PointCloudFilter() : initialized_(false) {}
+PointCloudFilter::~PointCloudFilter() {}
 
-  // Initialize a new UAVLocalization.
-  UAVSlam slam;
-  if (!slam.Initialize(n)) {
-    ROS_ERROR("%s: Failed to initialize UAVLocalization.",
-              ros::this_node::getName().c_str());
-    return EXIT_FAILURE;
+// Initialize.
+bool PointCloudFilter::Initialize(const ros::NodeHandle& n) {
+  name_ = ros::names::append(n.getNamespace(), "point_cloud_filter");
+
+  if (!LoadParameters(n)) {
+    ROS_ERROR("%s: Failed to load parameters.", name_.c_str());
+    return false;
   }
 
-  ros::spin();
-  return EXIT_SUCCESS;
+  if (!RegisterCallbacks(n)) {
+    ROS_ERROR("%s: Failed to register callbacks.", name_.c_str());
+    return false;
+  }
+
+  initialized_ = true;
+  return true;
+}
+
+// Load parameters.
+bool PointCloudFilter::LoadParameters(const ros::NodeHandle& n) {
+  if (!ros::param::get("/uav_slam/filter/voxel_leaf_size", voxel_leaf_size_))
+    return false;
+  if (!ros::param::get("/uav_slam/filter/sor_knn", sor_knn_))
+    return false;
+  if (!ros::param::get("/uav_slam/filter/sor_zscore", sor_zscore_))
+    return false;
+
+  return true;
+}
+
+// Register callbacks.
+bool PointCloudFilter::RegisterCallbacks(const ros::NodeHandle& n) {
+  return true;
+}
+
+// Filter the incoming point cloud.
+PointCloud::Ptr PointCloudFilter::Filter(const PointCloud::ConstPtr& cloud) {
+  PointCloud::Ptr filtered_cloud(new PointCloud);
+
+  // Voxel grid filter.
+  pcl::VoxelGrid<pcl::PointXYZ> grid_filter;
+  grid_filter.setInputCloud(cloud);
+  grid_filter.setLeafSize(voxel_leaf_size_, voxel_leaf_size_, voxel_leaf_size_);
+  grid_filter.filter(*filtered_cloud);
+
+  // Statistical outlier removal.
+  pcl::StatisticalOutlierRemoval<pcl::PointXYZ> sor_filter;
+  sor_filter.setInputCloud(filtered_cloud);
+  sor_filter.setMeanK(sor_knn_);
+  sor_filter.setStddevMulThresh(sor_zscore_);
+  sor_filter.filter(*filtered_cloud);
+
+  return filtered_cloud;
 }

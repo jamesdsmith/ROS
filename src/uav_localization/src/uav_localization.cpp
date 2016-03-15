@@ -53,7 +53,7 @@ bool UAVLocalization::Initialize(const ros::NodeHandle& n,
   odometry_ = odometry;
   mapper_ = mapper;
 
-  if (!LoadParameters(n)) {
+ if (!LoadParameters(n)) {
     ROS_ERROR("%s: Failed to load parameters.", name_.c_str());
     return false;
   }
@@ -77,6 +77,8 @@ bool UAVLocalization::LoadParameters(const ros::NodeHandle& n) {
   if (!ros::param::get("/uav_slam/icp/corr_dist", corr_dist_))
     return false;
   if (!ros::param::get("/uav_slam/icp/max_iters", max_iters_))
+    return false;
+  if (!ros::param::get("/uav_slam/localization/rough_alignment", rough_alignment_))
     return false;
 
   return true;
@@ -106,30 +108,35 @@ Transform3D& UAVLocalization::GetOdometryTransform() {
   return odometry_transform_;
 }
 
-// Localize a new scan against the map.
+// Localize a new (filtered) scan against the map.
 void UAVLocalization::Localize(const PointCloud::ConstPtr& scan) {
   if (!initialized_) {
     ROS_ERROR("%s: Tried to localize before initializing.", name_.c_str());
     return;
   }
 
+  // Do rough alignment using odometry (if flag is set).
   PointCloud::Ptr neighbors(new PointCloud);
   PointCloud::Ptr transformed(new PointCloud);
+  if (rough_alignment_) {
+    // Calculate odometry.
+    odometry_->ResetIntegratedTransform();
+    odometry_->UpdateOdometry(scan);
 
-  // Calculate odometry.
-  odometry_->ResetIntegratedTransform();
-  odometry_->UpdateOdometry(scan);
-  PointCloud::Ptr filtered = odometry_->GetPreviousCloud();
+    // Extract initial transform and update odometry estimate.
+    const Transform3D incremental_transform = odometry_->GetIntegratedTransform();
+    odometry_transform_ *= incremental_transform;
+    refined_transform_ *= incremental_transform;
 
-  // Extract initial transform and update odometry estimate.
-  const Transform3D incremental_transform = odometry_->GetIntegratedTransform();
-  odometry_transform_ *= incremental_transform;
-  refined_transform_ *= incremental_transform;
+    // Transform cloud into world frame.
+    Eigen::Matrix4d initial_tf = refined_transform_.GetTransform();
+    pcl::transformPointCloud(*scan, *transformed, initial_tf);
+  } else {
+    // Just set transformed to scan.
+    *transformed = *scan;
+  }
 
-  // Transform cloud into world frame.
-  Eigen::Matrix4d initial_tf = refined_transform_.GetTransform();
-  pcl::transformPointCloud(*filtered, *transformed, initial_tf);
-
+  // Do fine alignment.
   if (mapper_->Size() > 0) {
     // Grab nearest neighbors in map.
     if (!mapper_->NearestNeighbors(transformed, neighbors)) {
