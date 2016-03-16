@@ -2,4 +2,4 @@
 localization:
 
   # Do odometry as a rough alignment step.
-  rough_alignment: false
+  rough_alignment: true
