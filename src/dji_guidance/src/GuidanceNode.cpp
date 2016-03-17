@@ -64,7 +64,7 @@ Mat             disparity8(HEIGHT, WIDTH, CV_8UC1);
 // Avoid looking from the same camera twice in a row if possible (it isnt)
 int sequence_index = 0;
 #define SEQUENCE_COUNT 6
-e_vbus_index camera_pair_sequence[6][2] = {
+e_vbus_index camera_pair_sequence[SEQUENCE_COUNT][2] = {
     {e_vbus2, e_vbus3},
     {e_vbus4, e_vbus5},
     {e_vbus2, e_vbus4},
@@ -136,6 +136,10 @@ void select_camera_pair(int index) {
     }
 }
 
+bool check_sequence_validity(image_data* data, e_vbus_index index) {
+    return data->m_depth_image[index] && !(camera_pair_sequence[sequence_index][0] == index || camera_pair_sequence[sequence_index][1] == index);
+}
+
 int my_callback(int data_type, int data_len, char *content)
 {
     g_lock.enter();
@@ -167,6 +171,9 @@ int my_callback(int data_type, int data_len, char *content)
             right_8.encoding     = sensor_msgs::image_encodings::MONO8;
             right_image_pub.publish(right_8.toImageMsg());
         }
+
+        bool hasDepthMap = false;
+        bool hasDisparityMap = false;
         // disabling the old depth image because its going to be too hard to sync CAMERA_ID with the
         // new sequence system. I am leaving this here until we do the node rewrite so that I can 
         // reference it during the rewrite if we want to change it to publish single depth images
@@ -181,6 +188,7 @@ int my_callback(int data_type, int data_len, char *content)
             depth_16.header.stamp     = ros::Time::now();
             depth_16.encoding     = sensor_msgs::image_encodings::MONO16;
             depth_image_pub.publish(depth_16.toImageMsg());
+            hasDepthMap = true;
         }
         if ( data->m_disparity_image[CAMERA_ID] ){
             memcpy(g_disparity.data, data->m_disparity_image[CAMERA_ID], IMAGE_SIZE * 2);
@@ -193,21 +201,51 @@ int my_callback(int data_type, int data_len, char *content)
             disparity_16.header.stamp     = ros::Time::now();
             disparity_16.encoding         = sensor_msgs::image_encodings::MONO16;
             disparity_image_pub.publish(disparity_16.toImageMsg());
+            hasDisparityMap = true;
+        }
+
+        if (hasDepthMap && hasDisparityMap) {
+            bool difference = false;
+            int differences = 0;
+            for (int u = 0; u < WIDTH && !difference; ++u) {
+                for (int v = 0; v < HEIGHT && !difference; ++v) {
+                    if (g_disparity.at<ushort>(v, u) != g_depth.at<ushort>(v, u)) {
+                        //std::cout << "(" << u << ", " << v << "): " << g_disparity.at<ushort>(v, u) << ", " << g_depth.at<ushort>(v, u) << std::endl;
+                        //std::cout << g_disparity.at<ushort>(v, u) << ", " << g_depth.at<ushort>(v, u) << std::endl;
+                        //difference = true;
+                        differences++;
+                    }
+                }
+            }
+            // if (differences > 0) {
+            //     std::cout << "Disparity and Depth are not the same, bitwise: " << differences << " differences" << std::endl;
+            // }
         }
 
         // Publish a multi_image of depth data
-        // if (check_sequence_data(data)) {
-        //     dji_guidance::multi_image msg;
+        if (false && check_sequence_data(data)) {
+            dji_guidance::multi_image msg;
 
-        //     msg.images.push_back(create_image_message(data, camera_pair_sequence[sequence_index][0]));
-        //     msg.images.push_back(create_image_message(data, camera_pair_sequence[sequence_index][1]));
+            msg.images.push_back(create_image_message(data, camera_pair_sequence[sequence_index][0]));
+            msg.images.push_back(create_image_message(data, camera_pair_sequence[sequence_index][1]));
 
-        //     // select next camera pairs in the sequence
-        //     sequence_index = (sequence_index + 1) % SEQUENCE_COUNT;
-        //     select_camera_pair(sequence_index);
+            // select next camera pairs in the sequence
+            sequence_index = (sequence_index + 1) % SEQUENCE_COUNT;
 
-        //     image_pub.publish(msg);
-        // }
+            //std::cout << "publishing images for cameras: " << camera_pair_sequence[sequence_index][0] << ", " << camera_pair_sequence[sequence_index][1] << std::endl;
+
+            int err_code = stop_transfer();
+            if (err_code) {
+                std::cout << "Error when stopping transfer while trying to switch cameras " << err_code << std::endl;
+            }
+            reset_config();
+            select_camera_pair(sequence_index);
+            err_code = start_transfer();
+            if (err_code) {
+                std::cout << "Error when restarting transfer while trying to switch cameras " << err_code << std::endl;
+            }
+            image_pub.publish(msg);
+        }
     }
 
     /* imu */

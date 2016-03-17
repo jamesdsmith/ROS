@@ -109,19 +109,17 @@ void DepthCloudProjector::DepthMapCallback(const sensor_msgs::Image& map) {
     return;
   }
 
-  cv::Mat depth8(320, 240, CV_8UC1);
-  cv_ptr->image.convertTo(depth8, CV_8UC1);
-
-  DepthMap dm(depth8);
+  DepthMap dm(cv_ptr->image);
   dm.SetInverted(false);
   Mapper m(true);
 
   PointCloud cl = m.ProjectDepthMap(dm);
 
-  std::cout << "Projecting " << cl.size() << " points" << std::endl;
+  //std::cout << "Projecting " << cl.size() << " points" << std::endl;
 
   cl.header.frame_id = "guidance";
   cl.header.stamp = map.header.stamp.toNSec() / 1000;
+  cl.header.seq = map.header.seq;
 
   cloud_pub_.publish(cl.makeShared());
 }

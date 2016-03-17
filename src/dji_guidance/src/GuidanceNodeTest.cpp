@@ -96,7 +96,8 @@ void depth_image_callback(const sensor_msgs::ImageConstPtr& depth_img)
 
     cv::Mat depth8(HEIGHT, WIDTH, CV_8UC1);
     cv_ptr->image.convertTo(depth8, CV_8UC1);
-    cv::imshow("depth_image", depth8);
+    //cv::imshow("depth_image", depth8);
+    cv::imshow("depth_image", cv_ptr->image);
     cv::waitKey(1);
 }
 
@@ -114,7 +115,8 @@ void disparity_image_callback(const sensor_msgs::ImageConstPtr& disparity_img)
 
     cv::Mat disparity8(HEIGHT, WIDTH, CV_8UC1);
     cv_ptr->image.convertTo(disparity8, CV_8UC1);
-    cv::imshow("disparity_image", disparity8);
+    //cv::imshow("disparity_image", disparity8);
+    cv::imshow("disparity_image", cv_ptr->image);
     cv::waitKey(1);
 }
 
@@ -166,7 +168,7 @@ int main(int argc, char** argv)
     left_image_sub         = my_node.subscribe("/guidance/left_image",  10, left_image_callback);
     right_image_sub        = my_node.subscribe("/guidance/right_image", 10, right_image_callback);
     depth_image_sub        = my_node.subscribe("/guidance/depth_image", 10, depth_image_callback);
-    disparity_image_sub    = my_node.subscribe("/guidance/depth_image", 10, disparity_image_callback);
+    disparity_image_sub    = my_node.subscribe("/guidance/disparity_image", 10, disparity_image_callback);
     imu_sub                = my_node.subscribe("/guidance/imu", 1, imu_callback);
     velocity_sub           = my_node.subscribe("/guidance/velocity", 1, velocity_callback);
     obstacle_distance_sub  = my_node.subscribe("/guidance/obstacle_distance", 1, obstacle_distance_callback);

@@ -60,7 +60,7 @@ namespace bsfm {
     void SetInverted(bool value);
 
     // Getters.
-    uchar GetValue(size_t u, size_t v) const;
+    ushort GetValue(size_t u, size_t v) const;
     bool IsInverted() const;
 
   private:
@@ -83,29 +83,38 @@ namespace bsfm {
     return inverted_;
   }
 
-  uchar DepthMap::GetValue(size_t u, size_t v) const {
-    uchar value = at<uchar>(v, u * 3);
+  ushort DepthMap::GetValue(size_t u, size_t v) const {
+    ushort value = at<ushort>(v, u * 3);
     if (IsInverted()) {
-        value = 255 - value;
+        value = 65535 - value;
     }
     return value;
   }
 
   Vector3d DepthMap::Unproject(size_t u, size_t v) const {
     // @TODO jds: Need to load these from a parameter or something
-    double focal_length_x = 248.9;
-    double focal_length_y = 247.6;
+    //            values from the left camera configuration files
+    double focal_length_x = 247.357576;
+    double focal_length_y = 247.390025;
+    double cx = 153.295063;
+    double cy = 116.893925;
 
-    double z = GetValue(u, v);
-    double x = (u - Width() / 2.0) * z / focal_length_x;
-    double y = (v - Height() / 2.0) * z / focal_length_y;
+    // data format:
+    //    16 bits
+    //    top 9 bits, integer value
+    //    bottom 7 bits, decimal
+    ushort z_value = GetValue(u, v);
+    double z = (z_value >> 7) + (z_value & 127) / 128.0;
+
+    double x = (u - cx) * z / focal_length_x;
+    double y = (v - cy) * z / focal_length_y;
 
     Vector3d point = Vector3d(x, y, z);
     return point;
   }
 
   bool DepthMap::SaturatedAt(size_t u, size_t v) const {
-    return GetValue(u, v) <= 0 || GetValue(u, v) >= 255;
+    return GetValue(u, v) <= 0 || GetValue(u, v) >= 65535;
   }
 
 } //\ namespace bsfm
