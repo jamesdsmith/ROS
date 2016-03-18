@@ -6,3 +6,9 @@ surface:
   # RBF parameter for covariance kernel.
   # i.e. k(x1, x2) = exp(-gamma * ||x1 - x2||_2^2)
   gamma: 10.0
+
+  # Number of nearest neighbors to search for.
+  knn: 30
+
+  # Distance from surface to generate training points.
+  training_delta: 0.1

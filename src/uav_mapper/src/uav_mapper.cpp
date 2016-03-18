@@ -126,7 +126,7 @@ bool UAVMapper::KNearestNeighbors(const pcl::PointXYZ& point, int k,
       return false;
     }
     if (nn_indices.size() < k) {
-      ROS_WARN("%s: Found only %d of %d requested nearest neighbors.",
+      ROS_WARN("%s: Found only %lu of %d requested nearest neighbors.",
                name_.c_str(), nn_indices.size(), k);
       return false;
     }

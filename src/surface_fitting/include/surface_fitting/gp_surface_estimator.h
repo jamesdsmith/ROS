@@ -67,17 +67,18 @@ class GPSurfaceEstimator {
 
   // Compute signed distance and uncertainty to query point.
   void SignedDistance(const pcl::PointXYZ& query, const pcl::PointXYZ& pose,
-                      double& distance, double& variance) const;
+                      double& distance, double& variance);
 
  private:
   bool LoadParameters(const ros::NodeHandle& n);
   bool RegisterCallbacks(const ros::NodeHandle& n);
 
   void GenerateTrainingPoints(const pcl::PointXYZ& query, const pcl::PointXYZ& pose,
-                              const pcl::PointXYZ& front, const pcl::PointXYZ& back);
-  double RBF(const pcl::PointXYZ& p1, const pcl::PointXYZ& p2);
-  void TrainingCovariance();
-  void CrossCovariance(const pcl::PointXYZ& query);
+                              pcl::PointXYZ& front, pcl::PointXYZ& back) const;
+  double RBF(const pcl::PointXYZ& p1, const pcl::PointXYZ& p2) const;
+  void TrainingCovariance(const std::vector<pcl::PointXYZ>& points);
+  void CrossCovariance(const std::vector<pcl::PointXYZ>& points,
+                       const pcl::PointXYZ& query);
 
   // Member variables.
   UAVMapper* map_;

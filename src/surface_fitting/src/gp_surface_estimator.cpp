@@ -65,13 +65,13 @@ bool GPSurfaceEstimator::Initialize(const ros::NodeHandle& n, UAVMapper* map) {
     return false;
   }
 
-  // Set map.
-  map_ = map;
-
   // Initialize matrices.
   K11_ = Eigen::MatrixXd::Zero(knn_, knn_);
   K12_ = Eigen::VectorXd::Zero(knn_);
   training_distances_ = Eigen::VectorXd::Zero(knn_);
+
+  // Set map.
+  map_ = map;
 
   initialized_ = true;
   return true;
@@ -99,10 +99,10 @@ bool GPSurfaceEstimator::RegisterCallbacks(const ros::NodeHandle& n) {
 // Compute signed distance and uncertainty to query point.
 void GPSurfaceEstimator::SignedDistance(const pcl::PointXYZ& query,
                                         const pcl::PointXYZ& pose,
-                                        double& distance, double& variance) const {
+                                        double& distance, double& variance) {
   // Get nearest neigbors.
   std::vector<pcl::PointXYZ> neighbors;
-  if (!map_->KNearestNeighbors(query, knn, neighbors)) {
+  if (!map_->KNearestNeighbors(query, knn_, neighbors)) {
     ROS_ERROR("%s: UAVMapper returned error code on knn search.", name_.c_str());
     distance = std::numeric_limits<double>::infinity();
     variance = std::numeric_limits<double>::infinity();
@@ -116,9 +116,9 @@ void GPSurfaceEstimator::SignedDistance(const pcl::PointXYZ& query,
     pcl::PointXYZ front, back;
     GenerateTrainingPoints(neighbors[ii], pose, front, back);
     training_points.push_back(front);
-    training_distances_[2*ii] = -training_delta_;
+    training_distances_(2*ii) = -training_delta_;
     training_points.push_back(back);
-    training_distances_[2*ii + 1] = training_delta_;
+    training_distances_(2*ii + 1) = training_delta_;
   }
 
   // Compute covariance and cross covariance.
@@ -126,14 +126,16 @@ void GPSurfaceEstimator::SignedDistance(const pcl::PointXYZ& query,
   CrossCovariance(training_points, query);
 
   // Gaussian conditioning.
-  distance = K12_.transpose() * K11_.inverse() * training_distances_;
-  variance = 1.0 - K12_.transpose() * K11_.inverse() * K12_;
+  distance = K12_.transpose() * K11_.llt().solve(training_distances_);
+  variance = 1.0 - K12_.transpose() * K11_.llt().solve(K12_);
 }
 
 
 // Generate a points in front of and behind a query point.
-void GenerateTrainingPoints(const pcl::PointXYZ& query, const pcl::PointXYZ& pose,
-                            const pcl::PointXYZ& front, const pcl::PointXYZ& back) {
+void GPSurfaceEstimator::GenerateTrainingPoints(const pcl::PointXYZ& query,
+                                                const pcl::PointXYZ& pose,
+                                                pcl::PointXYZ& front,
+                                                pcl::PointXYZ& back) const {
   double dx = query.x - pose.x;
   double dy = query.y - pose.y;
   double dz = query.z - pose.z;
@@ -150,7 +152,7 @@ void GenerateTrainingPoints(const pcl::PointXYZ& query, const pcl::PointXYZ& pos
 
 // RBF covariance kernel.
 double GPSurfaceEstimator::RBF(const pcl::PointXYZ& p1,
-                               const pcl::PointXYZ& p2) {
+                               const pcl::PointXYZ& p2) const {
   double dx = p1.x - p2.x;
   double dy = p1.y - p2.y;
   double dz = p1.z - p2.z;
@@ -158,7 +160,7 @@ double GPSurfaceEstimator::RBF(const pcl::PointXYZ& p1,
 }
 
 // Compute covariance of the training points.
-void GPSurfaceEstimator::TrainingCovariance(const std::vector<pcl::PointXYZ> points) {
+void GPSurfaceEstimator::TrainingCovariance(const std::vector<pcl::PointXYZ>& points) {
   for (size_t ii = 0; ii < points.size(); ii++) {
     for (size_t jj = 0; jj < ii; jj++) {
       double rbf = RBF(points[ii], points[jj]);

@@ -8,6 +8,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   pcl_ros
+  uav_mapper
   utils
 )
 
@@ -17,6 +18,7 @@ catkin_package(
   CATKIN_DEPENDS
     roscpp
     pcl_ros
+    uav_mapper
     utils
 )
 
