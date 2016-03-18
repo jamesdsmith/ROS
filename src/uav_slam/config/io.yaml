@@ -1,6 +1,6 @@
 io:
   # Incoming point cloud topic.
-  scanner_topic: /mapper/cloud #/velodyne_points
+  scanner_topic: /mapper/cloud
 
   # Filtered scan output topic.
   filtered_topic: filtered

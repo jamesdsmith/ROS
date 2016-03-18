@@ -55,36 +55,38 @@
 #include <vector>
 #include <cmath>
 
+#include <uav_mapper/uav_mapper.h>
+
 class GPSurfaceEstimator {
  public:
   GPSurfaceEstimator();
   ~GPSurfaceEstimator();
 
   // Set initial points.
-  bool Initialize(const ros::NodeHandle& n,
-                  const std::vector<pcl::PointXYZ>& points,
-                  const std::vector<double>& distances);
+  bool Initialize(const ros::NodeHandle& n, UAVMapper* map);
 
   // Compute signed distance and uncertainty to query point.
-  void SignedDistance(const pcl::PointXYZ& query, double& distance,
-                      double& variance) const;
-
-  // Add a point to the surface.
-  void AddPoint(const pcl::PointXYZ& point);
+  void SignedDistance(const pcl::PointXYZ& query, const pcl::PointXYZ& pose,
+                      double& distance, double& variance) const;
 
  private:
   bool LoadParameters(const ros::NodeHandle& n);
   bool RegisterCallbacks(const ros::NodeHandle& n);
 
+  void GenerateTrainingPoints(const pcl::PointXYZ& query, const pcl::PointXYZ& pose,
+                              const pcl::PointXYZ& front, const pcl::PointXYZ& back);
   double RBF(const pcl::PointXYZ& p1, const pcl::PointXYZ& p2);
   void TrainingCovariance();
   void CrossCovariance(const pcl::PointXYZ& query);
 
   // Member variables.
-  Eigen::MatrixXd K11_, K11_inv_;
-  Eigen::VectorXd K12_, mu_training_;
-  std::vector<pcl::PointXYZ> training_points_;
-  double noise_sd_, gamma_;
+  UAVMapper* map_;
+  Eigen::MatrixXd K11_;
+  Eigen::VectorXd K12_, training_distances_;
+
+  // Parameters.
+  double noise_sd_, gamma_, training_delta_;
+  int knn_;
   bool initialized_;
   std::string name_;
 };

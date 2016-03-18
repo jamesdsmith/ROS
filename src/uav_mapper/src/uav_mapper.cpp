@@ -99,7 +99,7 @@ bool UAVMapper::NearestNeighbors(const PointCloud::Ptr cloud,
     if (std::isnan(cloud->points[ii].x) ||
         std::isnan(cloud->points[ii].y) ||
         std::isnan(cloud->points[ii].z)) {
-      ROS_ERROR("%s: Skipping nan point.", name_.c_str());
+      ROS_WARN("%s: Skipping nan point.", name_.c_str());
       continue;
     }
 
@@ -111,6 +111,34 @@ bool UAVMapper::NearestNeighbors(const PointCloud::Ptr cloud,
 
   return neighbors->points.size() > 0;
 }
+
+// K-nearest neighbor search.
+bool UAVMapper::KNearestNeighbors(const pcl::PointXYZ& point, int k,
+                                  std::vector<pcl::PointXYZ>& neighbors) {
+  neighbors.clear();
+
+  // Get neighbbors from octree.
+  std::vector<int> nn_indices;
+  std::vector<float> nn_distances;
+  if (map_octree_->nearestKSearch(point, k, nn_indices, nn_distances)) {
+    if (nn_indices.size() <= 0) {
+      ROS_ERROR("%s: Did not find any nearest neighbors.", name_.c_str());
+      return false;
+    }
+    if (nn_indices.size() < k) {
+      ROS_WARN("%s: Found only %d of %d requested nearest neighbors.",
+               name_.c_str(), nn_indices.size(), k);
+      return false;
+    }
+
+    // Query into map cloud and get actual points back.
+    for (size_t ii = 0; ii < nn_indices.size(); ii++)
+      neighbors.push_back(map_cloud_->points[ nn_indices[ii] ]);
+  }
+
+  return true;
+}
+
 
 // Add points to map.
 void UAVMapper::InsertPoints(const PointCloud& cloud) {
