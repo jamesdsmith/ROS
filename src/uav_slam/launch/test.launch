@@ -21,6 +21,9 @@
 
         <!-- Localization parameters -->
         <rosparam file="$(find uav_localization)/config/parameters.yaml"/>
+
+        <!-- Localization parameters -->
+        <rosparam file="$(find surface_fitting)/config/surface.yaml"/>
 </node>
 
   <group if="$(arg octomap)">

@@ -36,21 +36,47 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-// This defines the point_cloud_filter node.
+// This defines the surface_fitting node.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <ros/ros.h>
-#include <point_cloud_filter/point_cloud_filter.h>
+#include <surface_fitting/gp_surface_estimator.h>
+#include <utils/math/random_generator.h>
 
 int main(int argc, char** argv) {
   // Generate a new node.
-  ros::init(argc, argv, "point_cloud_filter");
+  ros::init(argc, argv, "surface_fitting");
   ros::NodeHandle n("~");
 
-  // Initialize a new PointCloudFilter.
-  PointCloudFilter filter;
-  if (!filter.Initialize(n)) {
+  // Initialize a new GPSurfaceEstimator.
+  GPSurfaceEstimator gp;
+  std::vector<pcl::PointXYZ> training_points;
+  std::vector<double> training_distances;
+
+  // Pick 30 random points on the unit sphere.
+  math::RandomGenerator rng(0);
+  for (size_t ii = 0; ii < 30; ii++) {
+    double theta = rng.DoubleUniform(0.0, 2.0*M_PI);
+    double phi = rng.DoubleUniform(0.0, M_PI);
+    double x = std::sin(phi) * std::cos(theta);
+    double y = std::sin(phi) * std::sin(theta);
+    double z = std::cos(phi);
+
+    pcl::PointXYZ p_inside, p_outside;
+    p_inside.x = 0.9 * x;
+    p_inside.y = 0.9 * y;
+    p_inside.z = 0.9 * z;
+    p_outside.x = 0.9 * x;
+    p_outside.y = 0.9 * y;
+    p_outside.z = 0.9 * z;
+    training_points.push_back(p_inside);
+    training_points.push_back(p_outside);
+    training_distances.push_back(-0.1);
+    training_distances.push_back(0.1);
+  }
+
+  if (!gp.Initialize(n, training_points, training_distances)) {
     ROS_ERROR("%s: Failed to initialize PointCloudFilter.",
               ros::this_node::getName().c_str());
     return EXIT_FAILURE;

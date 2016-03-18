@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<package>
+  <name>surface_fitting</name>
+  <version>0.0.0</version>
+  <description>The surface_fitting package. Use Gaussian process regression to fit an implicit surface to a set of points.</description>
+
+  <author email="dfk@eecs.berkeley.edu">David Fridovich-Keil</author>
+  <maintainer email="dfk@eecs.berkeley.edu">David Fridovich-Keil</maintainer>
+  <license>GPL</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <build_depend>roscpp</build_depend>
+  <build_depend>pcl_ros</build_depend>
+  <build_depend>utils</build_depend>
+
+  <run_depend>roscpp</run_depend>
+  <run_depend>pcl_ros</run_depend>
+  <run_depend>utils</run_depend>
+</package>
+

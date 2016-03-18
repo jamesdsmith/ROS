@@ -36,26 +36,57 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-// This defines the point_cloud_filter node.
+// The GPSurfaceEstimator class. Uses Gaussian process regression to learn a
+// signed distance function (and hence an implicit surface) in 3D.
+//
+// For a detailed description of the underlying mathematics, refer to pp. 13-19
+//    C. E. Rasmussen and C. K. I. Williams, "Gaussian Processes for
+//    Machine Learning," MIT Press, 2006.
+// which is freely available at www.GaussianProcess.org/gpml.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#ifndef GP_SURFACE_ESTIMATOR_H
+#define GP_SURFACE_ESTIMATOR_H
+
 #include <ros/ros.h>
-#include <point_cloud_filter/point_cloud_filter.h>
+#include <pcl/point_types.h>
+#include <Eigen/Dense>
+#include <vector>
+#include <cmath>
 
-int main(int argc, char** argv) {
-  // Generate a new node.
-  ros::init(argc, argv, "point_cloud_filter");
-  ros::NodeHandle n("~");
+class GPSurfaceEstimator {
+ public:
+  GPSurfaceEstimator();
+  ~GPSurfaceEstimator();
 
-  // Initialize a new PointCloudFilter.
-  PointCloudFilter filter;
-  if (!filter.Initialize(n)) {
-    ROS_ERROR("%s: Failed to initialize PointCloudFilter.",
-              ros::this_node::getName().c_str());
-    return EXIT_FAILURE;
-  }
+  // Set initial points.
+  bool Initialize(const ros::NodeHandle& n,
+                  const std::vector<pcl::PointXYZ>& points,
+                  const std::vector<double>& distances);
 
-  ros::spin();
-  return EXIT_SUCCESS;
-}
+  // Compute signed distance and uncertainty to query point.
+  void SignedDistance(const pcl::PointXYZ& query, double& distance,
+                      double& variance) const;
+
+  // Add a point to the surface.
+  void AddPoint(const pcl::PointXYZ& point);
+
+ private:
+  bool LoadParameters(const ros::NodeHandle& n);
+  bool RegisterCallbacks(const ros::NodeHandle& n);
+
+  double RBF(const pcl::PointXYZ& p1, const pcl::PointXYZ& p2);
+  void TrainingCovariance();
+  void CrossCovariance(const pcl::PointXYZ& query);
+
+  // Member variables.
+  Eigen::MatrixXd K11_, K11_inv_;
+  Eigen::VectorXd K12_, mu_training_;
+  std::vector<pcl::PointXYZ> training_points_;
+  double noise_sd_, gamma_;
+  bool initialized_;
+  std::string name_;
+};
+
+#endif

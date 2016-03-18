@@ -1,0 +1,8 @@
+surface:
+  # Standard deviation of additive Gaussian noise
+  # (uncertainty in distance from surface).
+  noise_sd: 1.0
+
+  # RBF parameter for covariance kernel.
+  # i.e. k(x1, x2) = exp(-gamma * ||x1 - x2||_2^2)
+  gamma: 10.0
