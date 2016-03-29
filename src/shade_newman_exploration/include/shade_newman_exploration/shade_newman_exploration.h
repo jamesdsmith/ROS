@@ -46,35 +46,52 @@
 #define SHADE_NEWMAN_EXPLORATION_H
 
 #include <ros/ros.h>
-#include <uav_slam/uav_slam.h>
-#include <utils/map/occupancy_grid_3d.h>
-#include <sensor_msgs/PointCloud2.h>
-#include <pcl/point_types.h>
-#include <pcl/octree/octree_search.h>
-#include <pcl_ros/point_cloud.h>
+#include <utils/map/array_3d.h>
+#include <octomap_msgs/Octomap.h>
+
 #include <Eigen/Dense>
 #include <cmath>
 #include <vector>
-
-typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
-typedef pcl::octree::OctreePointCloudSearch<pcl::PointXYZ> Octree;
+#include <tuple>
 
 class ShadeNewmanExploration {
- public:
+public:
   explicit ShadeNewmanExploration();
   ~ShadeNewmanExploration();
 
   bool Initialize(const ros::NodeHandle& n);
 
-
- private:
+private:
   bool LoadParameters(const ros::NodeHandle& n);
   bool RegisterCallbacks(const ros::NodeHandle& n);
 
-  // Member variables.
-  Array3D<
+  // Main callback. For each new map update, choose a direction.
+  void MapCallback(const octomap::Octomap& msg);
 
-  double octree_resolution_;
+  // Convert an Octomap octree to a regular grid.
+  void GenerateOccupancyGrid(octomap::OcTree* octree);
+
+  // Solve Laplace's equation on the grid. Helper LaplaceIteration() does
+  // one iteration of Laplace solving, and returns the maximum relative
+  // error.
+  bool SolveLaplace();
+  double LaplaceIteration();
+
+  // Update list of frontier voxels.
+  void FindFrontiers();
+
+  // Types for occupancy grid.
+  typedef enum OccupancyEnum {OCCUPIED, FREE, UNKNOWN} OccupancyType;
+
+  // Member variables.
+  Array3D<double>* potential_;
+  Array3D<OccupancyType>* occupancy_;
+  std::vector< std::tuple<size_t, size_t, size_t> > frontiers_;
+  double xmin_, xmax_, ymin_, ymax_, zmin_, zmax_; // bounding box
+  size_t length_, width_, height_;
+  double resolution_; // grid resolution
+  double tolerance_;  // tolerance for Laplace solver
+  size_t niter_;      // number of interations in Laplace solver
   bool initialized_;
   std::string name_;
 };

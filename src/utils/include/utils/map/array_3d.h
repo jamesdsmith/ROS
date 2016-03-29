@@ -44,9 +44,46 @@
 #ifndef UTILS_ARRAY_3D_H
 #define UTILS_ARRAY_3D_H
 
+#include <vector>
+#include <glog/logging.h>
+
 template<typename T>
 class Array3D {
-  
+public:
+  ~Array3D() {}
+  Array3D(size_t length, size_t width, size_t height);
+
+  // Accessor.
+  inline T& operator()(size_t ii, size_t jj, size_t kk);
+
+private:
+  const size_t length_, width_, height_;
+  std::vector<T> data_;
+};
+
+// ---------------------------- IMPLEMENTATION ------------------------------ //
+
+template<typename T>
+Array3D<T>::Array3D(size_t length, size_t width, size_t height)
+  : length_(length), width_(width), height_(height),
+    data_(length * width * height) {}
+
+template<typename T>
+T& Array3D<T>::operator()(size_t ii, size_t jj, size_t kk) {
+  if (ii >= length_) {
+    VLOG(1) << "X-index too large. Setting to max.";
+    ii = length_ - 1;
+  }
+  if (jj >= width_) {
+    VLOG(1) << "Y-index too large. Setting to max.";
+    jj = width_ - 1;
+  }
+  if (kk >= height_) {
+    VLOG(1) << "Z-index too large. Setting to max.";
+    kk = height_ - 1;
+  }
+
+  return data_.at(ii + jj * length + kk * length * width);
 }
 
 #endif
