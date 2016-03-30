@@ -1,0 +1,24 @@
+shade_newman:
+  # Occupancy grid resolution.
+  resolution: 1.0
+
+  # Bounding box dimensions.
+  xmin: 0.0
+  xmax: 50.0
+  ymin: 0.0
+  ymax: 50.0
+  zmin: -5.0
+  zmax: 20.0
+
+  # Laplace solver parameters.
+  tolerance: 0.0001
+  niter: 10
+
+  # Thresholds for determining if a voxel is free, unknown, or occupied.
+  # CHECK THESE!! 
+  occupied_lower_threshold: 0.95 
+  free_upper_threshold: 0.05
+
+  # I/O.
+  octomap_topic: /octomap_server/octomap_full
+  goal_topic: goal

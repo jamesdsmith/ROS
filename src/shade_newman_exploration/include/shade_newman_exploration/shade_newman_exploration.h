@@ -69,7 +69,7 @@ private:
   void MapCallback(const octomap::Octomap& msg);
 
   // Convert an Octomap octree to a regular grid.
-  void GenerateOccupancyGrid(octomap::OcTree* octree);
+  bool GenerateOccupancyGrid(octomap::OcTree* octree);
 
   // Solve Laplace's equation on the grid. Helper LaplaceIteration() does
   // one iteration of Laplace solving, and returns the maximum relative
@@ -78,7 +78,10 @@ private:
   double LaplaceIteration();
 
   // Update list of frontier voxels.
-  void FindFrontiers();
+  bool FindFrontiers();
+
+  // Publish the goal location.
+  void PublishGoal(double x, double y, double z) const;
 
   // Types for occupancy grid.
   typedef enum OccupancyEnum {OCCUPIED, FREE, UNKNOWN} OccupancyType;
@@ -87,12 +90,20 @@ private:
   Array3D<double>* potential_;
   Array3D<OccupancyType>* occupancy_;
   std::vector< std::tuple<size_t, size_t, size_t> > frontiers_;
+  ros::Subscriber octomap_subscriber_;
+  ros::Publisher goal_publisher_;
+
+  double occupied_lower_threshold_; // lower bound on occupied likelihood
+  double free_upper_threshold_;     // upper bound on free likelihood
   double xmin_, xmax_, ymin_, ymax_, zmin_, zmax_; // bounding box
   size_t length_, width_, height_;
   double resolution_; // grid resolution
   double tolerance_;  // tolerance for Laplace solver
   size_t niter_;      // number of interations in Laplace solver
+  ros::Time stamp_;   // time stamp of current message
   bool initialized_;
+  std::string octomap_topic_;
+  std::string goal_topic_;
   std::string name_;
 };
 

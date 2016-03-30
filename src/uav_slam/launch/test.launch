@@ -24,7 +24,7 @@
 
         <!-- Localization parameters -->
         <rosparam file="$(find surface_fitting)/config/surface.yaml"/>
-</node>
+  </node>
 
   <group if="$(arg octomap)">
 
