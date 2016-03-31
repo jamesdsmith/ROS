@@ -154,7 +154,7 @@ void ShadeNewmanExploration::MapCallback(const octomap::Octomap& msg) {
 
 // Convert an Octomap octree to a regular grid.
 bool ShadeNewmanExploration::GenerateOccupancyGrid(octomap::OcTree* octree) {
-  
+  // Iterate over voxels.
 }
 
 // Solve Laplace's equation on the grid. Helper LaplaceIteration() does
