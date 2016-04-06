@@ -161,7 +161,7 @@ bool ShadeNewmanExploration::IndicesToCoordinates(size_t ii, size_t jj, size_t k
     return false;
   }
 
-  // Set x, y, z.
+  // Set x, y, z. THIS IS NOT QUITE RIGHT!
   x = xmin_ + static_cast<double>(ii) * (xmax_-xmin_) / static_cast<double>(length_);
   y = ymin_ + static_cast<double>(jj) * (ymax_-ymin_) / static_cast<double>(width_);
   z = zmin_ + static_cast<double>(kk) * (zmax_-zmin_) / static_cast<double>(height_);
