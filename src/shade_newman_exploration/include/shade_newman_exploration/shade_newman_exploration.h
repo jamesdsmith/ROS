@@ -51,7 +51,7 @@
 
 #include <Eigen/Dense>
 #include <cmath>
-#include <vector>
+#include <unordered_set>
 #include <tuple>
 
 class ShadeNewmanExploration {
@@ -92,7 +92,8 @@ private:
   // Member variables.
   Array3D<double>* potential_;
   Array3D<OccupancyType>* occupancy_;
-  std::vector< std::tuple<size_t, size_t, size_t> > frontiers_;
+  std::unordered_set< std::tuple<size_t, size_t, size_t> > frontiers_;
+  std::unordered_set< std::tuple<size_t, size_t, size_t> > obstacles_;
   ros::Subscriber octomap_subscriber_;
   ros::Publisher goal_publisher_;
 

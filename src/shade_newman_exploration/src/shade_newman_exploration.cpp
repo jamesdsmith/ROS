@@ -161,10 +161,10 @@ bool ShadeNewmanExploration::IndicesToCoordinates(size_t ii, size_t jj, size_t k
     return false;
   }
 
-  // Set x, y, z. THIS IS NOT QUITE RIGHT!
-  x = xmin_ + static_cast<double>(ii) * (xmax_-xmin_) / static_cast<double>(length_);
-  y = ymin_ + static_cast<double>(jj) * (ymax_-ymin_) / static_cast<double>(width_);
-  z = zmin_ + static_cast<double>(kk) * (zmax_-zmin_) / static_cast<double>(height_);
+  // Set x, y, z.
+  x = xmin_  + (static_cast<double>(ii) + 0.5) * resolution_;
+  y = ymin_  + (static_cast<double>(jj) + 0.5) * resolution_;
+  z = zmin_  + (static_cast<double>(kk) + 0.5) * resolution_;
 
   return true;
 }
@@ -185,11 +185,11 @@ bool ShadeNewmanExploration::GenerateOccupancyGrid(octomap::OcTree* octree) {
         // Query octree and set voxel grid.
         double occupancy_probability = octree->search(x, y, z)->getOccupancy();
         if (occupancy_probability > occupied_lower_threshold_)
-          occupancy_(ii, jj, kk) = OCCUPIED;
+          *occupancy_(ii, jj, kk) = OCCUPIED;
         else if (occupancy_probability < free_upper_threshold)
-          occupancy_(ii, jj, kk) = FREE;
+          *occupancy_(ii, jj, kk) = FREE;
         else
-          occupancy_(ii, jj, kk) = UNKNOWN;
+          *occupancy_(ii, jj, kk) = UNKNOWN;
       }
     }
   }
@@ -214,8 +214,55 @@ bool ShadeNewmanExploration::SolveLaplace(double& x, double& y, double& z) {
 // returns the maximum relative error.
 double ShadeNewmanExploration::LaplaceIteration();
 
-// Update list of frontier voxels.
-bool ShadeNewmanExploration::FindFrontiers();
+// Update set of frontier and obstacle boundary voxels.
+// Note: This is a very naive implementation right now. To speed up, it
+//       should be possible to examine only the deltas between this map
+//       and the last map.
+bool ShadeNewmanExploration::FindFrontiers() {
+  frontiers_.clear();
+  obstacles_.clear();
+
+  // Iterate over all voxels.
+  for (size_t ii = 0; ii < length_; ii++) {
+    for (size_t jj = 0; jj < width_; jj++) {
+      for (size_t kk = 0; kk < height_; kk++) {
+        // Frontier identification.
+        if (*occupancy_(ii, jj, kk) == UNKNOWN) {
+          if ((occupancy_->IsValid(ii - 1, jj, kk) &&
+               *occupancy_(ii - 1, jj, kk) == FREE) ||
+              (occupancy_->IsValid(ii + 1, jj, kk) &&
+               *occupancy_(ii + 1, jj, kk) == FREE) ||
+              (occupancy_->IsValid(ii, jj - 1, kk) &&
+               *occupancy_(ii, jj - 1, kk) == FREE) ||
+              (occupancy_->IsValid(ii, jj + 1, kk) &&
+               *occupancy_(ii, jj + 1, kk) == FREE) ||
+              (occupancy_->IsValid(ii, jj, kk - 1) &&
+               *occupancy_(ii, jj, kk - 1) == FREE) ||
+              (occupancy_->IsValid(ii, jj, kk + 1) &&
+               *occupancy_(ii, jj, kk + 1) == FREE))
+            frontiers_.insert(std::make_tuple(ii, jj, kk));
+        }
+
+        // Obstacle boundary identification.
+        else if (*occupancy_(ii, jj, kk) == OCCUPIED) {
+          if ((occupancy_->IsValid(ii - 1, jj, kk) &&
+               *occupancy_(ii - 1, jj, kk) == FREE) ||
+              (occupancy_->IsValid(ii + 1, jj, kk) &&
+               *occupancy_(ii + 1, jj, kk) == FREE) ||
+              (occupancy_->IsValid(ii, jj - 1, kk) &&
+               *occupancy_(ii, jj - 1, kk) == FREE) ||
+              (occupancy_->IsValid(ii, jj + 1, kk) &&
+               *occupancy_(ii, jj + 1, kk) == FREE) ||
+              (occupancy_->IsValid(ii, jj, kk - 1) &&
+               *occupancy_(ii, jj, kk - 1) == FREE) ||
+              (occupancy_->IsValid(ii, jj, kk + 1) &&
+               *occupancy_(ii, jj, kk + 1) == FREE))
+            obstacles_.insert(std::make_tuple(ii, jj, kk));
+        }
+      }
+    }
+  }
+}
 
 // Publish the goal location.
 void ShadeNewmanExploration::PublishGoal(double x, double y, double z) const {

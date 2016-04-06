@@ -56,6 +56,9 @@ public:
   // Accessor.
   inline T& operator()(size_t ii, size_t jj, size_t kk);
 
+  // Test out of bounds.
+  inline bool IsValid(size_t ii, size_t jj, size_t kk) const;
+
 private:
   const size_t length_, width_, height_;
   std::vector<T> data_;
@@ -84,6 +87,13 @@ T& Array3D<T>::operator()(size_t ii, size_t jj, size_t kk) {
   }
 
   return data_.at(ii + jj * length + kk * length * width);
+}
+
+template<typename T>
+bool Array3D<T>::IsValid(size_t ii, size_t jj, size_t kk) const {
+  if (ii < length_ && jj < width_ && kk < height_)
+    return true;
+  return false;
 }
 
 #endif
