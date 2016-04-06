@@ -152,19 +152,79 @@ void ShadeNewmanExploration::MapCallback(const octomap::Octomap& msg) {
   PublishGoal(x, y, z);
 }
 
-// Convert an Octomap octree to a regular grid.
-bool ShadeNewmanExploration::GenerateOccupancyGrid(octomap::OcTree* octree) {
-  // Iterate over voxels.
+// Get the coordinates in 3D of a given voxel.
+bool ShadeNewmanExploration::IndicesToCoordinates(size_t ii, size_t jj, size_t kk,
+                                                  double& x, double& y,
+                                                  double& z) const {
+  if (ii >= length_ || jj >= width_ || kk >= height_) {
+    ROS_ERROR("%s: Indices are out of bounds.", name_.c_str());
+    return false;
+  }
+
+  // Set x, y, z.
+  x = xmin_ + static_cast<double>(ii) * (xmax_-xmin_) / static_cast<double>(length_);
+  y = ymin_ + static_cast<double>(jj) * (ymax_-ymin_) / static_cast<double>(width_);
+  z = zmin_ + static_cast<double>(kk) * (zmax_-zmin_) / static_cast<double>(height_);
+
+  return true;
 }
 
-// Solve Laplace's equation on the grid. Helper LaplaceIteration() does
-// one iteration of Laplace solving, and returns the maximum relative
-// error.
-bool ShadeNewmanExploration::SolveLaplace(double& x, double& y, double& z);
+// Convert an Octomap octree to a regular grid.
+bool ShadeNewmanExploration::GenerateOccupancyGrid(octomap::OcTree* octree) {
+  double x, y, z;
+
+  // Iterate over voxels.
+  for (size_t ii = 0; ii < length_; ii++) {
+    for (size_t jj = 0; jj < width_; jj++) {
+      for (size_t kk = 0; kk < height_; kk++) {
+        if (!IndicesToCoordinates(ii, jj, kk, x, y, z)) {
+          ROS_WARN("%s: Indices out of bounds.", name_.c_str());
+          continue;
+        }
+
+        // Query octree and set voxel grid.
+        double occupancy_probability = octree->search(x, y, z)->getOccupancy();
+        if (occupancy_probability > occupied_lower_threshold_)
+          occupancy_(ii, jj, kk) = OCCUPIED;
+        else if (occupancy_probability < free_upper_threshold)
+          occupancy_(ii, jj, kk) = FREE;
+        else
+          occupancy_(ii, jj, kk) = UNKNOWN;
+      }
+    }
+  }
+
+}
+
+// Solve Laplace's equation on the grid. SolveLaplace() sets its arguments to
+// the direction of steepest descent.
+bool ShadeNewmanExploration::SolveLaplace(double& x, double& y, double& z) {
+  for (size_t ii = 0; ii < niter_; ii++) {
+    if (LaplaceIteration() < tolerance_)
+      return true;
+  }
+
+  // Did not converge.
+  ROS_WARN("%s: Laplace solver did not converge after %ul iterations.",
+           name_.c_str(), niter_);
+  return false;
+}
+
+// Helper LaplaceIteration() does one iteration of Laplace solving, and
+// returns the maximum relative error.
 double ShadeNewmanExploration::LaplaceIteration();
 
 // Update list of frontier voxels.
 bool ShadeNewmanExploration::FindFrontiers();
 
 // Publish the goal location.
-void ShadeNewmanExploration::PublishGoal(double x, double y, double z) const;
+void ShadeNewmanExploration::PublishGoal(double x, double y, double z) const {
+  geometry_msgs::Vector3Stamped msg;
+
+  msg.vector.x = x;
+  msg.vector.y = y;
+  msg.vector.z = z;
+  msg.header.stamp = stamp_;
+
+  goal_publisher_.publish(msg);
+}

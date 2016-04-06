@@ -70,11 +70,14 @@ private:
 
   // Convert an Octomap octree to a regular grid.
   bool GenerateOccupancyGrid(octomap::OcTree* octree);
+  bool IndicesToCoordinates(size_t ii, size_t jj, size_t kk,
+                            double& x, double& y, double& z) const;
 
   // Solve Laplace's equation on the grid. Helper LaplaceIteration() does
   // one iteration of Laplace solving, and returns the maximum relative
-  // error.
-  bool SolveLaplace();
+  // error. SolveLaplace() sets its arguments to the direction of steepest
+  // descent.
+  bool SolveLaplace(double& x, double& y, double& z);
   double LaplaceIteration();
 
   // Update list of frontier voxels.
