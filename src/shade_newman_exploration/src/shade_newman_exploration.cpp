@@ -135,21 +135,6 @@ void ShadeNewmanExploration::MapCallback(const octomap::Octomap& msg) {
     ROS_ERROR("%s: Failed to generate a regular occupancy grid.", name_.c_str());
     return;
   }
-
-  // Find frontiers.
-  if (!FindFrontiers()) {
-    ROS_WARN("%s: Did not find any frontiers.", name_.c_str());
-    return;
-  }
-
-  // Solve the Laplace equation on this regular grid.
-  double x, y, z;
-  if (!SolveLaplace(x, y, z)) {
-    ROS_WARN("%s: Laplace solving did not converge.", name_.c_str());
-  }
-
-  // Publish the goal location.
-  PublishGoal(x, y, z);
 }
 
 // Get the coordinates in 3D of a given voxel.
@@ -168,6 +153,26 @@ bool ShadeNewmanExploration::IndicesToCoordinates(size_t ii, size_t jj, size_t k
 
   return true;
 }
+
+// Get the voxel indices for a given set of 3D coordinates.
+bool ShadeNewmanExploration::CoordinatesToIndices(double x, double y, double z,
+                                                  size_t& ii, size_t& jj,
+                                                  size_t& kk) const {
+  if (x <= xmin_ || x >= x_max_ ||
+      y <= ymin_ || y >= y_max_ ||
+      z <= zmin_ || z >= z_max_) {
+    ROS_ERROR("%s: Coordinates are out of bounds.", name_.c_str());
+    return false;
+  }
+
+  // Set ii, jj, kk.
+  ii = static_cast<size_t>((x - xmin_) / resolution_);
+  jj = static_cast<size_t>((y - ymin_) / resolution_);
+  kk = static_cast<size_t>((z - zmin_) / resolution_);
+
+  return true;
+}
+
 
 // Convert an Octomap octree to a regular grid.
 bool ShadeNewmanExploration::GenerateOccupancyGrid(octomap::OcTree* octree) {
@@ -198,21 +203,173 @@ bool ShadeNewmanExploration::GenerateOccupancyGrid(octomap::OcTree* octree) {
 
 // Solve Laplace's equation on the grid. SolveLaplace() sets its arguments to
 // the direction of steepest descent.
-bool ShadeNewmanExploration::SolveLaplace(double& x, double& y, double& z) {
-  for (size_t ii = 0; ii < niter_; ii++) {
-    if (LaplaceIteration() < tolerance_)
-      return true;
+bool ShadeNewmanExploration::SolveLaplace(double pose_x, double pose_y,
+                                          double pose_z, double& dir_x,
+                                          double& dir_y, double& dir_z) {
+  // Find frontiers.
+  if (!FindFrontiers()) {
+    ROS_WARN("%s: Did not find any frontiers.", name_.c_str());
+    return;
   }
 
-  // Did not converge.
+  // Solve the Laplace equation on this regular grid.
+  for (size_t ii = 0; ii < niter_; ii++) {
+    if (LaplaceIteration() < tolerance_) {
+      double x, y, z;
+      if (!GetSteepestDescent(pose_x, pose_y, pose_z, dir_x, dir_y, dir_z)) {
+        ROS_ERROR("%s: Error finding direction of steepest descent.",
+                  name_.c_str());
+        return false;
+      }
+
+      return true;
+    }
+  }
+
+  // Did not converge. Set dir_x/y/z to zero.
   ROS_WARN("%s: Laplace solver did not converge after %ul iterations.",
            name_.c_str(), niter_);
+  dir_x = 0.0; dir_y = 0.0; dir_z = 0.0;
   return false;
 }
 
+// Helper GetSteepestDescent() finds the direction of steepest descent
+// from the robot's current position. If there's an out of bounds error,
+// return dir_x/y/z = 0.
+bool ShadeNewmanExploration::GetSteepestDescent(double pose_x, double pose_y,
+                                                double pose_z, double& dir_x,
+                                                double& dir_y, double& dir_z) const {
+  // Get indices.
+  size_t ii, jj, kk;
+  if (!CoordinatesToIndices(pose_x, pose_y, pose_z, ii, jj, kk)) {
+    ROS_ERROR("%s: Pose is out of bounds.", name_.c_str());
+    dir_x = 0.0; dir_y = 0.0; dir_z = 0.0;
+    return false;
+  }
+
+  // Find the local gradient in the 26-connected neighborhood.
+  double best_dir_x, best_dir_y, best_dir_z;
+  double best_dir_mag = -1.0;
+  for (di = -1; di <= 1; di++) {
+    for (dj = -1; dj <= 1; dj++) {
+      for (dk = -1; dk <= 1; dk++) {
+        if (di == 0 || dj == 0 || dk == 0)
+          continue;
+
+        // Get gradient.
+        if (!GetGradient(ii + di, jj + dj, kk + dk, dir_x, dir_y, dir_z))
+          continue;
+
+        // Set best.
+        if (dir_x*dir_x + dir_y*dir_y + dir_z*dir_z > best_dir_mag) {
+          best_dir_x = dir_x;
+          best_dir_y = dir_y;
+          best_dir_z = dir_z;
+          best_dir_mag = dir_x*dir_x + dir_y*dir_y + dir_z*dir_z;
+        }
+      }
+    }
+  }
+
+  // Return best if it exists.
+  if (best_dir_mag <= 0.0) {
+    ROS_ERROR("%s: No valid direction.", name_.c_str());
+    return false;
+  }
+
+  dir_x = best_dir_x;
+  dir_y = best_dir_y;
+  dir_z = best_dir_z;
+  return true;
+}
+
+// Get the gradient at a particular voxel. Use two-sided finite differences.
+bool ShadeNewmanExploration::GetGradient(size_t ii, size_t jj, size_t kk,
+                                         double& dir_x, double& dir_y,
+                                         double& dir_z) const {
+  // Check valid and free.
+  if (!potential_->IsValid(ii, jj, kk))
+    return false;
+  if (*occupancy_(ii, jj, kk) != FREE)
+    return false;
+
+  // Compute two-sided finite differences when possible.
+  // Assume that frontiers are set to zero potential in the solve step.
+  double left, right, front, back, up, down;
+  size_t x_length, y_length, z_length;
+  x_length = y_length = z_length = 2;
+
+  // Check left.
+  if (!occupancy_->IsValid(ii - 1, jj, kk) ||
+      *occupancy_(ii - 1, jj, kk) == OCCUPIED) {
+    left = *potential_(ii, jj, kk);
+    x_length--;
+  } else {
+    left = *potential_(ii - 1, jj, kk);
+  }
+
+  // Check right.
+  if (!occupancy_->IsValid(ii + 1, jj, kk) ||
+      *occupancy_(ii + 1, jj, kk) == OCCUPIED) {
+    right = *potential_(ii, jj, kk);
+    x_length--;
+  } else {
+    right = *potential_(ii + 1, jj, kk);
+  }
+
+  // Check back.
+  if (!occupancy_->IsValid(ii, jj - 1, kk) ||
+      *occupancy_(ii, jj - 1, kk) == OCCUPIED) {
+    back = *potential_(ii, jj, kk);
+    y_length--;
+  } else {
+    back = *potential_(ii, jj - 1, kk);
+  }
+
+  // Check front.
+  if (!occupancy_->IsValid(ii, jj + 1, kk) ||
+      *occupancy_(ii, jj + 1, kk) == OCCUPIED) {
+    front = *potential_(ii, jj, kk);
+    y_length--;
+  } else {
+    front = *potential_(ii, jj + 1, kk);
+  }
+
+  // Check down.
+  if (!occupancy_->IsValid(ii, jj, kk - 1) ||
+      *occupancy_(ii, jj, kk - 1) == OCCUPIED) {
+    down = *potential_(ii, jj, kk);
+    x_length--;
+  } else {
+    down = *potential_(ii, jj, kk - 1);
+  }
+
+  // Check up.
+  if (!occupancy_->IsValid(ii, jj, kk + 1) ||
+      *occupancy_(ii, jj, kk + 1) == OCCUPIED) {
+    up = *potential_(ii, jj, kk);
+    x_length--;
+  } else {
+    up = *potential_(ii, jj, kk + 1);
+  }
+
+  // Compute slopes.
+  double dir_x = (x_length > 0) ?
+    (right - left) / (static_cast<double>(x_length) * resolution_) : 0.0;
+  double dir_y = (y_length > 0) ?
+    (front - back) / (static_cast<double>(y_length) * resolution_) : 0.0;
+  double dir_z = (z_length > 0) ?
+    (up - down) / (static_cast<double>(z_length) * resolution_) : 0.0;
+
+  return true;
+}
+
+
 // Helper LaplaceIteration() does one iteration of Laplace solving, and
 // returns the maximum relative error.
-double ShadeNewmanExploration::LaplaceIteration();
+double ShadeNewmanExploration::LaplaceIteration() {
+  
+}
 
 // Update set of frontier and obstacle boundary voxels.
 // Note: This is a very naive implementation right now. To speed up, it

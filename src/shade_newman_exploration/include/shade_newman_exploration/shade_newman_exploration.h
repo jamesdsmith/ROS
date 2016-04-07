@@ -61,6 +61,12 @@ public:
 
   bool Initialize(const ros::NodeHandle& n);
 
+  // Solve Laplace's equation on the grid. SolveLaplace() sets dir_x/y/z to
+  // the direction of steepest descent.
+  bool SolveLaplace(double pose_x, double pose_y, double pose_z,
+                    double& dir_x, double& dir_y, double& dir_z);
+
+
 private:
   bool LoadParameters(const ros::NodeHandle& n);
   bool RegisterCallbacks(const ros::NodeHandle& n);
@@ -72,19 +78,22 @@ private:
   bool GenerateOccupancyGrid(octomap::OcTree* octree);
   bool IndicesToCoordinates(size_t ii, size_t jj, size_t kk,
                             double& x, double& y, double& z) const;
+  bool CoordinatesToIndices(double x, double y, double z,
+                            size_t& ii, size_t& jj, size_t& kk) const;
 
-  // Solve Laplace's equation on the grid. Helper LaplaceIteration() does
-  // one iteration of Laplace solving, and returns the maximum relative
-  // error. SolveLaplace() sets its arguments to the direction of steepest
-  // descent.
-  bool SolveLaplace(double& x, double& y, double& z);
-  double LaplaceIteration();
+  // Helper LaplaceIteration() does one iteration of Laplace solving, and
+  // returns the maximum relative error.
+  double LaplaceIteration(double pose_x, double pose_y, double pose_z);
+
+  // Helper GetSteepestDescent() finds the direction of steepest descent
+  // from the robot's current position.
+  bool GetSteepestDescent(double pose_x, double pose_y, double pose_z,
+                          double& dir_x, double& dir_y, double& dir_z) const;
+  bool GetGradient(size_t ii, size_t jj, size_t kk,
+                   double& dir_x, double& dir_y, double& dir_z) const;
 
   // Update list of frontier voxels.
   bool FindFrontiers();
-
-  // Publish the goal location.
-  void PublishGoal(double x, double y, double z) const;
 
   // Types for occupancy grid.
   typedef enum OccupancyEnum {OCCUPIED, FREE, UNKNOWN} OccupancyType;
@@ -95,7 +104,6 @@ private:
   std::unordered_set< std::tuple<size_t, size_t, size_t> > frontiers_;
   std::unordered_set< std::tuple<size_t, size_t, size_t> > obstacles_;
   ros::Subscriber octomap_subscriber_;
-  ros::Publisher goal_publisher_;
 
   double occupied_lower_threshold_; // lower bound on occupied likelihood
   double free_upper_threshold_;     // upper bound on free likelihood
