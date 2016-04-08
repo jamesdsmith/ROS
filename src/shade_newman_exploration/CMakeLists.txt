@@ -9,7 +9,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   sensor_msgs
   geometry_msgs
-  octomap
+  octomap REQUIRED
   octomap_msgs
   pcl_ros
   uav_slam
@@ -18,7 +18,7 @@ find_package(catkin REQUIRED COMPONENTS
 
 catkin_package(
   INCLUDE_DIRS include
-  LIBRARIES ${PROJECT_NAME} octomap_msgs
+  LIBRARIES ${PROJECT_NAME} octomap_msgs octomap
   CATKIN_DEPENDS
     roscpp
     sensor_msgs
@@ -29,15 +29,21 @@ catkin_package(
     utils
 )
 
-include_directories(include ${catkin_INCLUDE_DIRS})
+include_directories(include
+  ${catkin_INCLUDE_DIRS}
+  ${octomap_INCLUDE_DIRS}
+)
+
 link_directories(
   ${catkin_LIBRARY_DIRS}
+  ${octomap_LIBRARY_DIRS}
 )
 
 add_library(${PROJECT_NAME} src/${PROJECT_NAME}.cpp)
 
 target_link_libraries(${PROJECT_NAME}
   ${catkin_LIBRARIES}
+  ${octomap_LIBRARIES}
 )
 
 install(TARGETS ${PROJECT_NAME}
@@ -55,6 +61,7 @@ add_executable(${PROJECT_NAME}_node src/${PROJECT_NAME}_node.cpp)
 target_link_libraries(${PROJECT_NAME}_node
   ${PROJECT_NAME}
   ${catkin_LIBRARIES}
+  ${octomap_LIBRARIES}
 )
 
 add_dependencies(${PROJECT_NAME}_node octomap_msgs_generate_messages_cpp)
