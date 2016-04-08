@@ -47,6 +47,7 @@
 
 #include <ros/ros.h>
 #include <utils/map/array_3d.h>
+#include <octomap_msgs/conversions.h>
 #include <octomap_msgs/Octomap.h>
 #include <octomap/OcTree.h>
 
@@ -83,11 +84,11 @@ private:
   bool CoordinatesToIndices(double x, double y, double z,
                             size_t& ii, size_t& jj, size_t& kk) const;
   bool IndicesToIndex(size_t ii, size_t jj, size_t kk, size_t& idx) const;
-
+  bool IndexToIndices(size_t idx, size_t& ii, size_t& jj, size_t& kk) const;
 
   // Helper LaplaceIteration() does one iteration of Laplace solving, and
   // returns the maximum relative error.
-  double LaplaceIteration(double pose_x, double pose_y, double pose_z);
+  double LaplaceIteration(size_t pose_ii, size_t pose_jj, size_t pose_kk);
   double GetLocalMean(size_t ii, size_t jj, size_t kk) const;
 
   // Helper GetSteepestDescent() finds the direction of steepest descent
@@ -115,7 +116,7 @@ private:
   size_t length_, width_, height_;
   double resolution_; // grid resolution
   double tolerance_;  // tolerance for Laplace solver
-  size_t niter_;      // number of interations in Laplace solver
+  int niter_;         // number of interations in Laplace solver
   ros::Time stamp_;   // time stamp of current message
   bool initialized_;
   std::string octomap_topic_;

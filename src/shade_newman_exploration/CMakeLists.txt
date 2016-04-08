@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(shade_newman_exploration)
 
-#set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_LIST_DIR}/cmake")
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
@@ -14,11 +14,15 @@ find_package(catkin REQUIRED COMPONENTS
   pcl_ros
   uav_slam
   utils
+  message_generation
 )
+
+#add_message_files(FILES Octomap.msg)
+#generate_messages(DEPENDENCIES geometry_msgs sensor_msgs octomap_msgs)
 
 catkin_package(
   INCLUDE_DIRS include
-  LIBRARIES ${PROJECT_NAME}
+  LIBRARIES ${PROJECT_NAME} octomap_msgs
   CATKIN_DEPENDS
     roscpp
     sensor_msgs
@@ -27,6 +31,7 @@ catkin_package(
     pcl_ros
     uav_slam
     utils
+    message_runtime
 )
 
 include_directories(include ${catkin_INCLUDE_DIRS})

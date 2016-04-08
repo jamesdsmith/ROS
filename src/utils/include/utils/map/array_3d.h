@@ -54,7 +54,7 @@ public:
   Array3D(size_t length, size_t width, size_t height);
 
   // Accessor.
-  inline T& operator()(size_t ii, size_t jj, size_t kk);
+  inline T& At(size_t ii, size_t jj, size_t kk);
 
   // Test out of bounds.
   inline bool IsValid(size_t ii, size_t jj, size_t kk) const;
@@ -72,7 +72,7 @@ Array3D<T>::Array3D(size_t length, size_t width, size_t height)
     data_(length * width * height) {}
 
 template<typename T>
-T& Array3D<T>::operator()(size_t ii, size_t jj, size_t kk) {
+T& Array3D<T>::At(size_t ii, size_t jj, size_t kk) {
   if (ii >= length_) {
     VLOG(1) << "X-index too large. Setting to max.";
     ii = length_ - 1;
@@ -86,7 +86,7 @@ T& Array3D<T>::operator()(size_t ii, size_t jj, size_t kk) {
     kk = height_ - 1;
   }
 
-  return data_.at(ii + jj * length_ + kk * length_ * width_);
+  return data_.at(ii * width_ * height_ + jj * height_ + kk);
 }
 
 template<typename T>

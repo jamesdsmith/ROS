@@ -116,10 +116,6 @@ bool ShadeNewmanExploration::RegisterCallbacks(const ros::NodeHandle& n) {
     node.subscribe<octomap_msgs::Octomap>(octomap_topic_.c_str(), 20,
                                      &ShadeNewmanExploration::MapCallback, this);
 
-  // Publisher.
-  goal_publisher_ =
-    node.advertise<geometry_msgs::Vector3Stamped>(goal_topic_.c_str(),
-                                                  10, false);
   return true;
 }
 
@@ -158,9 +154,9 @@ bool ShadeNewmanExploration::IndicesToCoordinates(size_t ii, size_t jj, size_t k
 bool ShadeNewmanExploration::CoordinatesToIndices(double x, double y, double z,
                                                   size_t& ii, size_t& jj,
                                                   size_t& kk) const {
-  if (x <= xmin_ || x >= x_max_ ||
-      y <= ymin_ || y >= y_max_ ||
-      z <= zmin_ || z >= z_max_) {
+  if (x <= xmin_ || x >= xmax_ ||
+      y <= ymin_ || y >= ymax_ ||
+      z <= zmin_ || z >= zmax_) {
     ROS_ERROR("%s: Coordinates are out of bounds.", name_.c_str());
     return false;
   }
@@ -190,11 +186,11 @@ bool ShadeNewmanExploration::GenerateOccupancyGrid(octomap::OcTree* octree) {
         // Query octree and set voxel grid.
         double occupancy_probability = octree->search(x, y, z)->getOccupancy();
         if (occupancy_probability > occupied_lower_threshold_)
-          *occupancy_(ii, jj, kk) = OCCUPIED;
-        else if (occupancy_probability < free_upper_threshold)
-          *occupancy_(ii, jj, kk) = FREE;
+          occupancy_->At(ii, jj, kk) = OCCUPIED;
+        else if (occupancy_probability < free_upper_threshold_)
+          occupancy_->At(ii, jj, kk) = FREE;
         else
-          *occupancy_(ii, jj, kk) = UNKNOWN;
+          occupancy_->At(ii, jj, kk) = UNKNOWN;
       }
     }
   }
@@ -214,9 +210,16 @@ bool ShadeNewmanExploration::SolveLaplace(double pose_x, double pose_y,
   }
 #endif
 
+  // Get robot pose indices.
+  size_t pose_ii, pose_jj, pose_kk;
+  if (!CoordinatesToIndices(pose_x, pose_y, pose_z, pose_ii, pose_jj, pose_kk)) {
+    ROS_ERROR("%s: Robot is out of bounds.", name_.c_str());
+    return false;
+  }
+
   // Solve the Laplace equation on this regular grid.
   for (size_t ii = 0; ii < niter_; ii++) {
-    if (LaplaceIteration() < tolerance_) {
+    if (LaplaceIteration(pose_ii, pose_jj, pose_kk) < tolerance_) {
       double x, y, z;
       if (!GetSteepestDescent(pose_x, pose_y, pose_z, dir_x, dir_y, dir_z)) {
         ROS_ERROR("%s: Error finding direction of steepest descent.",
@@ -252,14 +255,24 @@ bool ShadeNewmanExploration::GetSteepestDescent(double pose_x, double pose_y,
   // Find the local gradient in the 26-connected neighborhood.
   double best_dir_x, best_dir_y, best_dir_z;
   double best_dir_mag = -1.0;
-  for (di = -1; di <= 1; di++) {
-    for (dj = -1; dj <= 1; dj++) {
-      for (dk = -1; dk <= 1; dk++) {
-        if (di == 0 || dj == 0 || dk == 0)
+  for (size_t di = 0; di <= 2; di++) {
+    for (size_t dj = 0; dj <= 2; dj++) {
+      for (size_t dk = 0; dk <= 2; dk++) {
+        // Leave out query voxel.
+        if (di == 1 && dj == 1 && dk == 1)
+          continue;
+
+        // Check not out of bounds.
+        size_t test_ii, test_jj, test_kk;
+        test_ii = ii + di; test_jj = jj + dj; test_kk = kk + dk;
+        if (test_ii == 0 || test_jj == 0 || test_kk == 0)
+          continue;
+        if (test_ii > length_ || test_jj > width_ || test_kk > height_)
           continue;
 
         // Get gradient.
-        if (!GetGradient(ii + di, jj + dj, kk + dk, dir_x, dir_y, dir_z))
+        if (!GetGradient(test_ii - 1, test_jj - 1, test_kk - 1,
+                         dir_x, dir_y, dir_z))
           continue;
 
         // Set best.
@@ -292,7 +305,7 @@ bool ShadeNewmanExploration::GetGradient(size_t ii, size_t jj, size_t kk,
   // Check valid and free.
   if (!potential_->IsValid(ii, jj, kk))
     return false;
-  if (*occupancy_(ii, jj, kk) != FREE)
+  if (occupancy_->At(ii, jj, kk) != FREE)
     return false;
 
   // Compute two-sided finite differences when possible.
@@ -303,64 +316,64 @@ bool ShadeNewmanExploration::GetGradient(size_t ii, size_t jj, size_t kk,
 
   // Check left.
   if (!occupancy_->IsValid(ii - 1, jj, kk) ||
-      *occupancy_(ii - 1, jj, kk) == OCCUPIED) {
-    left = *potential_(ii, jj, kk);
+      occupancy_->At(ii - 1, jj, kk) == OCCUPIED) {
+    left = potential_->At(ii, jj, kk);
     x_length--;
   } else {
-    left = *potential_(ii - 1, jj, kk);
+    left = potential_->At(ii - 1, jj, kk);
   }
 
   // Check right.
   if (!occupancy_->IsValid(ii + 1, jj, kk) ||
-      *occupancy_(ii + 1, jj, kk) == OCCUPIED) {
-    right = *potential_(ii, jj, kk);
+      occupancy_->At(ii + 1, jj, kk) == OCCUPIED) {
+    right = potential_->At(ii, jj, kk);
     x_length--;
   } else {
-    right = *potential_(ii + 1, jj, kk);
+    right = potential_->At(ii + 1, jj, kk);
   }
 
   // Check back.
   if (!occupancy_->IsValid(ii, jj - 1, kk) ||
-      *occupancy_(ii, jj - 1, kk) == OCCUPIED) {
-    back = *potential_(ii, jj, kk);
+      occupancy_->At(ii, jj - 1, kk) == OCCUPIED) {
+    back = potential_->At(ii, jj, kk);
     y_length--;
   } else {
-    back = *potential_(ii, jj - 1, kk);
+    back = potential_->At(ii, jj - 1, kk);
   }
 
   // Check front.
   if (!occupancy_->IsValid(ii, jj + 1, kk) ||
-      *occupancy_(ii, jj + 1, kk) == OCCUPIED) {
-    front = *potential_(ii, jj, kk);
+      occupancy_->At(ii, jj + 1, kk) == OCCUPIED) {
+    front = potential_->At(ii, jj, kk);
     y_length--;
   } else {
-    front = *potential_(ii, jj + 1, kk);
+    front = potential_->At(ii, jj + 1, kk);
   }
 
   // Check down.
   if (!occupancy_->IsValid(ii, jj, kk - 1) ||
-      *occupancy_(ii, jj, kk - 1) == OCCUPIED) {
-    down = *potential_(ii, jj, kk);
+      occupancy_->At(ii, jj, kk - 1) == OCCUPIED) {
+    down = potential_->At(ii, jj, kk);
     x_length--;
   } else {
-    down = *potential_(ii, jj, kk - 1);
+    down = potential_->At(ii, jj, kk - 1);
   }
 
   // Check up.
   if (!occupancy_->IsValid(ii, jj, kk + 1) ||
-      *occupancy_(ii, jj, kk + 1) == OCCUPIED) {
-    up = *potential_(ii, jj, kk);
+      occupancy_->At(ii, jj, kk + 1) == OCCUPIED) {
+    up = potential_->At(ii, jj, kk);
     x_length--;
   } else {
-    up = *potential_(ii, jj, kk + 1);
+    up = potential_->At(ii, jj, kk + 1);
   }
 
   // Compute slopes.
-  double dir_x = (x_length > 0) ?
+  dir_x = (x_length > 0) ?
     (right - left) / (static_cast<double>(x_length) * resolution_) : 0.0;
-  double dir_y = (y_length > 0) ?
+  dir_y = (y_length > 0) ?
     (front - back) / (static_cast<double>(y_length) * resolution_) : 0.0;
-  double dir_z = (z_length > 0) ?
+  dir_z = (z_length > 0) ?
     (up - down) / (static_cast<double>(z_length) * resolution_) : 0.0;
 
   return true;
@@ -368,26 +381,33 @@ bool ShadeNewmanExploration::GetGradient(size_t ii, size_t jj, size_t kk,
 
 // Helper LaplaceIteration() does one iteration of Laplace solving, and
 // returns the maximum relative change.
-double ShadeNewmanExploration::LaplaceIteration() {
+double ShadeNewmanExploration::LaplaceIteration(size_t pose_ii, size_t pose_jj,
+                                                size_t pose_kk) {
   double max_delta = -std::numeric_limits<double>::infinity();
+
+  // Set robot pose potential to unity.
+  potential_->At(pose_ii, pose_jj, pose_kk) = 1.0;
 
   // Iterate over all free voxels and update.
   for (size_t ii = 0; ii < length_; ii++) {
     for (size_t jj = 0; jj < width_; jj++) {
       for (size_t kk = 0; kk < height_; kk++) {
-        if (!*occupancy_(ii, jj, kk) == FREE)
+        if (!occupancy_->At(ii, jj, kk) == FREE)
+          continue;
+
+        if (ii == pose_ii && jj == pose_jj && kk == pose_kk)
           continue;
 
         // Calculate mean with boundary conditions.
         double mean = GetLocalMean(ii, jj, kk);
 
         // Update delta.
-        double delta = mean - *potential_(ii, jj, kk);
+        double delta = mean - potential_->At(ii, jj, kk);
         if (delta > max_delta)
           max_delta = delta;
 
         // Update voxel.
-        *potential_(ii, jj, kk) = mean;
+        potential_->At(ii, jj, kk) = mean;
       }
     }
   }
@@ -410,35 +430,35 @@ double ShadeNewmanExploration::GetLocalMean(size_t ii, size_t jj, size_t kk) con
 
   // Check left/right.
   if (!potential_->IsValid(ii - 1, jj, kk) ||
-      *occupancy_(ii - 1, jj, kk) == OCCUPIED ||
+      occupancy_->At(ii - 1, jj, kk) == OCCUPIED ||
       !potential_->IsValid(ii + 1, jj, kk) ||
-      *occupancy_(ii + 1, jj, kk) == OCCUPIED) {
+      occupancy_->At(ii + 1, jj, kk) == OCCUPIED) {
     num_neighbors -= 2;
   } else {
-    left = *potential_(ii - 1, jj, kk);
-    right = *potential_(ii + 1, jj, kk);
+    left = potential_->At(ii - 1, jj, kk);
+    right = potential_->At(ii + 1, jj, kk);
   }
 
   // Check back/front.
   if (!potential_->IsValid(ii, jj - 1, kk) ||
-      *occupancy_(ii, jj - 1, kk) == OCCUPIED ||
+      occupancy_->At(ii, jj - 1, kk) == OCCUPIED ||
       !potential_->IsValid(ii, jj + 1, kk) ||
-      *occupancy_(ii, jj + 1, kk) == OCCUPIED) {
+      occupancy_->At(ii, jj + 1, kk) == OCCUPIED) {
     num_neighbors -= 2;
   } else {
-    back = *potential_(ii, jj - 1, kk);
-    front = *potential_(ii, jj + 1, kk);
+    back = potential_->At(ii, jj - 1, kk);
+    front = potential_->At(ii, jj + 1, kk);
   }
 
-  // Check down/up.
+  // Check dwn/up.
   if (!potential_->IsValid(ii, jj, kk - 1) ||
-      *occupancy_(ii, jj, kk - 1) == OCCUPIED ||
+      occupancy_->At(ii, jj, kk - 1) == OCCUPIED ||
       !potential_->IsValid(ii, jj, kk + 1) ||
-      *occupancy_(ii, jj, kk + 1) == OCCUPIED) {
+      occupancy_->At(ii, jj, kk + 1) == OCCUPIED) {
     num_neighbors -= 2;
   } else {
-    down = *potential_(ii, jj, kk - 1);
-    up = *potential_(ii, jj, kk + 1);
+    down = potential_->At(ii, jj, kk - 1);
+    up = potential_->At(ii, jj, kk + 1);
   }
 
   // Set mean and return.
@@ -460,19 +480,19 @@ bool ShadeNewmanExploration::FindFrontiers() {
     for (size_t jj = 0; jj < width_; jj++) {
       for (size_t kk = 0; kk < height_; kk++) {
         // Frontier identification.
-        if (*occupancy_(ii, jj, kk) == UNKNOWN) {
+        if (occupancy_->At(ii, jj, kk) == UNKNOWN) {
           if ((occupancy_->IsValid(ii - 1, jj, kk) &&
-               *occupancy_(ii - 1, jj, kk) == FREE) ||
+               occupancy_->At(ii - 1, jj, kk) == FREE) ||
               (occupancy_->IsValid(ii + 1, jj, kk) &&
-               *occupancy_(ii + 1, jj, kk) == FREE) ||
+               occupancy_->At(ii + 1, jj, kk) == FREE) ||
               (occupancy_->IsValid(ii, jj - 1, kk) &&
-               *occupancy_(ii, jj - 1, kk) == FREE) ||
+               occupancy_->At(ii, jj - 1, kk) == FREE) ||
               (occupancy_->IsValid(ii, jj + 1, kk) &&
-               *occupancy_(ii, jj + 1, kk) == FREE) ||
+               occupancy_->At(ii, jj + 1, kk) == FREE) ||
               (occupancy_->IsValid(ii, jj, kk - 1) &&
-               *occupancy_(ii, jj, kk - 1) == FREE) ||
+               occupancy_->At(ii, jj, kk - 1) == FREE) ||
               (occupancy_->IsValid(ii, jj, kk + 1) &&
-               *occupancy_(ii, jj, kk + 1) == FREE)) {
+               occupancy_->At(ii, jj, kk + 1) == FREE)) {
             size_t idx;
             if (!IndicesToIndex(ii, jj, kk, idx)) {
               ROS_ERROR("%s: Out of bounds error.", name_.c_str());
@@ -484,19 +504,19 @@ bool ShadeNewmanExploration::FindFrontiers() {
         }
 
         // Obstacle boundary identification.
-        else if (*occupancy_(ii, jj, kk) == OCCUPIED) {
+        else if (occupancy_->At(ii, jj, kk) == OCCUPIED) {
           if ((occupancy_->IsValid(ii - 1, jj, kk) &&
-               *occupancy_(ii - 1, jj, kk) == FREE) ||
+               occupancy_->At(ii - 1, jj, kk) == FREE) ||
               (occupancy_->IsValid(ii + 1, jj, kk) &&
-               *occupancy_(ii + 1, jj, kk) == FREE) ||
+               occupancy_->At(ii + 1, jj, kk) == FREE) ||
               (occupancy_->IsValid(ii, jj - 1, kk) &&
-               *occupancy_(ii, jj - 1, kk) == FREE) ||
+               occupancy_->At(ii, jj - 1, kk) == FREE) ||
               (occupancy_->IsValid(ii, jj + 1, kk) &&
-               *occupancy_(ii, jj + 1, kk) == FREE) ||
+               occupancy_->At(ii, jj + 1, kk) == FREE) ||
               (occupancy_->IsValid(ii, jj, kk - 1) &&
-               *occupancy_(ii, jj, kk - 1) == FREE) ||
+               occupancy_->At(ii, jj, kk - 1) == FREE) ||
               (occupancy_->IsValid(ii, jj, kk + 1) &&
-               *occupancy_(ii, jj, kk + 1) == FREE)) {
+               occupancy_->At(ii, jj, kk + 1) == FREE)) {
             size_t idx;
             if (!IndicesToIndex(ii, jj, kk, idx)) {
               ROS_ERROR("%s: Out of bounds error.", name_.c_str());
@@ -513,4 +533,22 @@ bool ShadeNewmanExploration::FindFrontiers() {
 
 // Indices to index. Get a single 1D index from a 3D index.
 bool ShadeNewmanExploration::IndicesToIndex(size_t ii, size_t jj, size_t kk,
-                                            size_t& idx) const;
+                                            size_t& idx) const {
+  idx = ii * width_ * height_ + jj * height_ + kk;
+
+  if (idx >= length_ * width_ * height_)
+    return false;
+  return true;
+}
+
+// Index to indices. Get 3D indices corresponding to the given 1D index.
+bool ShadeNewmanExploration::IndexToIndices(size_t idx, size_t& ii, size_t& jj,
+                                            size_t& kk) const {
+  if (idx >= length_ * width_ * height_)
+    return false;
+
+  ii = idx / (width_ * height_);
+  jj = (idx - ii * width_ * height_) / height_;
+  kk = idx - ii * width_ * height_ - jj * height_;
+  return true;
+}
