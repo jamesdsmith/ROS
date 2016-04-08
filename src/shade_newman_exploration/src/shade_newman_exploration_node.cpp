@@ -41,17 +41,17 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <ros/ros.h>
-#include <uav_mapper/uav_mapper.h>
+#include <shade_newman_exploration/shade_newman_exploration.h>
 
 int main(int argc, char** argv) {
   // Generate a new node.
   ros::init(argc, argv, "uav_mapper");
   ros::NodeHandle n("~");
 
-  // Initialize a new UAV mapper.
-  UAVMapper mapper;
-  if (!mapper.Initialize(n)) {
-    ROS_ERROR("%s: Failed to initialize UAV mapper.",
+  // Initialize a new ShadeNewmanExploration.
+  ShadeNewmanExploration explorer;
+  if (!explorer.Initialize(n)) {
+    ROS_ERROR("%s: Failed to initialize ShadeNewmanExploration.",
               ros::this_node::getName().c_str());
     return EXIT_FAILURE;
   }

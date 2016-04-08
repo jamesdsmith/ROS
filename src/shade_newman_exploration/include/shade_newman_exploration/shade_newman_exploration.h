@@ -50,6 +50,7 @@
 #include <octomap_msgs/conversions.h>
 #include <octomap_msgs/Octomap.h>
 #include <octomap/OcTree.h>
+#include <octomap/AbstractOcTree.h>
 
 #include <Eigen/Dense>
 #include <cmath>
@@ -117,7 +118,6 @@ private:
   double resolution_; // grid resolution
   double tolerance_;  // tolerance for Laplace solver
   int niter_;         // number of interations in Laplace solver
-  ros::Time stamp_;   // time stamp of current message
   bool initialized_;
   std::string octomap_topic_;
   std::string goal_topic_;

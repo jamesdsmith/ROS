@@ -45,7 +45,7 @@
 #define UTILS_ARRAY_3D_H
 
 #include <vector>
-#include <glog/logging.h>
+#include <iostream>
 
 template<typename T>
 class Array3D {
@@ -74,15 +74,15 @@ Array3D<T>::Array3D(size_t length, size_t width, size_t height)
 template<typename T>
 T& Array3D<T>::At(size_t ii, size_t jj, size_t kk) {
   if (ii >= length_) {
-    VLOG(1) << "X-index too large. Setting to max.";
+    std::cerr << "X-index too large. Setting to max." << std::endl;
     ii = length_ - 1;
   }
   if (jj >= width_) {
-    VLOG(1) << "Y-index too large. Setting to max.";
+    std::cerr << "Y-index too large. Setting to max." << std::endl;
     jj = width_ - 1;
   }
   if (kk >= height_) {
-    VLOG(1) << "Z-index too large. Setting to max.";
+    std::cerr << "Z-index too large. Setting to max." << std::endl;
     kk = height_ - 1;
   }
 

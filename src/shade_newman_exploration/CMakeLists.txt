@@ -14,11 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
   pcl_ros
   uav_slam
   utils
-  message_generation
 )
-
-#add_message_files(FILES Octomap.msg)
-#generate_messages(DEPENDENCIES geometry_msgs sensor_msgs octomap_msgs)
 
 catkin_package(
   INCLUDE_DIRS include
@@ -31,7 +27,6 @@ catkin_package(
     pcl_ros
     uav_slam
     utils
-    message_runtime
 )
 
 include_directories(include ${catkin_INCLUDE_DIRS})
@@ -61,3 +56,5 @@ target_link_libraries(${PROJECT_NAME}_node
   ${PROJECT_NAME}
   ${catkin_LIBRARIES}
 )
+
+add_dependencies(${PROJECT_NAME}_node octomap_msgs_generate_messages_cpp)

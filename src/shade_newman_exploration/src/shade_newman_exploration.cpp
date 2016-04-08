@@ -113,18 +113,17 @@ bool ShadeNewmanExploration::RegisterCallbacks(const ros::NodeHandle& n) {
 
   // Subscriber.
   octomap_subscriber_ =
-    node.subscribe<octomap_msgs::Octomap>(octomap_topic_.c_str(), 20,
-                                     &ShadeNewmanExploration::MapCallback, this);
+    node.subscribe<const octomap_msgs::Octomap&>(octomap_topic_.c_str(), 20,
+                                          &ShadeNewmanExploration::MapCallback, this);
 
   return true;
 }
 
 // Main callback. For each new map update, choose a direction.
 void ShadeNewmanExploration::MapCallback(const octomap_msgs::Octomap& msg) {
-  stamp_.fromNSec(msg.header.stamp);
-
   // Deserialize octree.
-  octomap::OcTree* octree = octomap_msgs::fullMsgToMap(msg);
+  octomap::AbstractOcTree* abstract_octree = octomap_msgs::fullMsgToMap(msg);
+  octomap::OcTree* octree = dynamic_cast<octomap::OcTree*>(abstract_octree);
 
   // Generate a dense, regular occupancy grid.
   if (!GenerateOccupancyGrid(octree)) {
