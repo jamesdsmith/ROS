@@ -84,6 +84,7 @@ private:
   // Helper LaplaceIteration() does one iteration of Laplace solving, and
   // returns the maximum relative error.
   double LaplaceIteration(double pose_x, double pose_y, double pose_z);
+  double GetLocalMean(size_t ii, size_t jj, size_t kk) const;
 
   // Helper GetSteepestDescent() finds the direction of steepest descent
   // from the robot's current position.

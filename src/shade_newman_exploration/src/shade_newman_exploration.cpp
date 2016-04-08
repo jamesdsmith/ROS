@@ -364,11 +364,85 @@ bool ShadeNewmanExploration::GetGradient(size_t ii, size_t jj, size_t kk,
   return true;
 }
 
-
 // Helper LaplaceIteration() does one iteration of Laplace solving, and
-// returns the maximum relative error.
+// returns the maximum relative change.
 double ShadeNewmanExploration::LaplaceIteration() {
-  
+  double max_delta = -std::numeric_limits<double>::infinity();
+
+  // Iterate over all free voxels and update.
+  for (size_t ii = 0; ii < length_; ii++) {
+    for (size_t jj = 0; jj < width_; jj++) {
+      for (size_t kk = 0; kk < height_; kk++) {
+        if (!*occupancy_(ii, jj, kk) == FREE)
+          continue;
+
+        // Calculate mean with boundary conditions.
+        double mean = GetLocalMean(ii, jj, kk);
+
+        // Update delta.
+        double delta = mean - *potential_(ii, jj, kk);
+        if (delta > max_delta)
+          max_delta = delta;
+
+        // Update voxel.
+        *potential_(ii, jj, kk) = mean;
+      }
+    }
+  }
+
+  return max_delta;
+}
+
+// GetLocalMean() finds the local mean (including boundary conditions)
+// on the potential field.
+double ShadeNewmanExploration::GetLocalMean(size_t ii, size_t jj, size_t kk) const {
+  if (!potential_->IsValid(ii, jj, kk)) {
+    ROS_ERROR("%s: Out of bounds error.", name_.c_str());
+    return std::numeric_limits<double>::infinity();
+  }
+
+  // Handle object boundaries.
+  size_t num_neighbors = 6;
+  double left, right, front, back, up, down;
+  left = right = front = back = up = down = 0.0;
+
+  // Check left/right.
+  if (!potential_->IsValid(ii - 1, jj, kk) ||
+      *occupancy_(ii - 1, jj, kk) == OCCUPIED ||
+      !potential_->IsValid(ii + 1, jj, kk) ||
+      *occupancy_(ii + 1, jj, kk) == OCCUPIED) {
+    num_neighbors -= 2;
+  } else {
+    left = *potential_(ii - 1, jj, kk);
+    right = *potential_(ii + 1, jj, kk);
+  }
+
+  // Check back/front.
+  if (!potential_->IsValid(ii, jj - 1, kk) ||
+      *occupancy_(ii, jj - 1, kk) == OCCUPIED ||
+      !potential_->IsValid(ii, jj + 1, kk) ||
+      *occupancy_(ii, jj + 1, kk) == OCCUPIED) {
+    num_neighbors -= 2;
+  } else {
+    back = *potential_(ii, jj - 1, kk);
+    front = *potential_(ii, jj + 1, kk);
+  }
+
+  // Check down/up.
+  if (!potential_->IsValid(ii, jj, kk - 1) ||
+      *occupancy_(ii, jj, kk - 1) == OCCUPIED ||
+      !potential_->IsValid(ii, jj, kk + 1) ||
+      *occupancy_(ii, jj, kk + 1) == OCCUPIED) {
+    num_neighbors -= 2;
+  } else {
+    down = *potential_(ii, jj, kk - 1);
+    up = *potential_(ii, jj, kk + 1);
+  }
+
+  // Set mean and return.
+  double mean = (num_neighbors > 0) ?
+    (left + right + front + back + up + down) : 0.0;
+  return mean;
 }
 
 // Update set of frontier and obstacle boundary voxels.
