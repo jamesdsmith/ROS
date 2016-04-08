@@ -86,7 +86,7 @@ T& Array3D<T>::operator()(size_t ii, size_t jj, size_t kk) {
     kk = height_ - 1;
   }
 
-  return data_.at(ii + jj * length + kk * length * width);
+  return data_.at(ii + jj * length_ + kk * length_ * width_);
 }
 
 template<typename T>

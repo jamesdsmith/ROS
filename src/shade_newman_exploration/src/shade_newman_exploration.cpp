@@ -113,7 +113,7 @@ bool ShadeNewmanExploration::RegisterCallbacks(const ros::NodeHandle& n) {
 
   // Subscriber.
   octomap_subscriber_ =
-    node.subscribe<octomap::Octomap>(octomap_topic_.c_str(), 20,
+    node.subscribe<octomap_msgs::Octomap>(octomap_topic_.c_str(), 20,
                                      &ShadeNewmanExploration::MapCallback, this);
 
   // Publisher.
@@ -124,7 +124,7 @@ bool ShadeNewmanExploration::RegisterCallbacks(const ros::NodeHandle& n) {
 }
 
 // Main callback. For each new map update, choose a direction.
-void ShadeNewmanExploration::MapCallback(const octomap::Octomap& msg) {
+void ShadeNewmanExploration::MapCallback(const octomap_msgs::Octomap& msg) {
   stamp_.fromNSec(msg.header.stamp);
 
   // Deserialize octree.
@@ -207,10 +207,12 @@ bool ShadeNewmanExploration::SolveLaplace(double pose_x, double pose_y,
                                           double pose_z, double& dir_x,
                                           double& dir_y, double& dir_z) {
   // Find frontiers.
+#if 0
   if (!FindFrontiers()) {
     ROS_WARN("%s: Did not find any frontiers.", name_.c_str());
     return;
   }
+#endif
 
   // Solve the Laplace equation on this regular grid.
   for (size_t ii = 0; ii < niter_; ii++) {
@@ -470,8 +472,15 @@ bool ShadeNewmanExploration::FindFrontiers() {
               (occupancy_->IsValid(ii, jj, kk - 1) &&
                *occupancy_(ii, jj, kk - 1) == FREE) ||
               (occupancy_->IsValid(ii, jj, kk + 1) &&
-               *occupancy_(ii, jj, kk + 1) == FREE))
-            frontiers_.insert(std::make_tuple(ii, jj, kk));
+               *occupancy_(ii, jj, kk + 1) == FREE)) {
+            size_t idx;
+            if (!IndicesToIndex(ii, jj, kk, idx)) {
+              ROS_ERROR("%s: Out of bounds error.", name_.c_str());
+              continue;
+            }
+
+            frontiers_.insert(idx);
+          }
         }
 
         // Obstacle boundary identification.
@@ -487,22 +496,21 @@ bool ShadeNewmanExploration::FindFrontiers() {
               (occupancy_->IsValid(ii, jj, kk - 1) &&
                *occupancy_(ii, jj, kk - 1) == FREE) ||
               (occupancy_->IsValid(ii, jj, kk + 1) &&
-               *occupancy_(ii, jj, kk + 1) == FREE))
-            obstacles_.insert(std::make_tuple(ii, jj, kk));
+               *occupancy_(ii, jj, kk + 1) == FREE)) {
+            size_t idx;
+            if (!IndicesToIndex(ii, jj, kk, idx)) {
+              ROS_ERROR("%s: Out of bounds error.", name_.c_str());
+              continue;
+            }
+
+            obstacles_.insert(idx);
+          }
         }
       }
     }
   }
 }
 
-// Publish the goal location.
-void ShadeNewmanExploration::PublishGoal(double x, double y, double z) const {
-  geometry_msgs::Vector3Stamped msg;
-
-  msg.vector.x = x;
-  msg.vector.y = y;
-  msg.vector.z = z;
-  msg.header.stamp = stamp_;
-
-  goal_publisher_.publish(msg);
-}
+// Indices to index. Get a single 1D index from a 3D index.
+bool ShadeNewmanExploration::IndicesToIndex(size_t ii, size_t jj, size_t kk,
+                                            size_t& idx) const;

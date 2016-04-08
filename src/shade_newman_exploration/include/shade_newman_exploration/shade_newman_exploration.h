@@ -48,10 +48,12 @@
 #include <ros/ros.h>
 #include <utils/map/array_3d.h>
 #include <octomap_msgs/Octomap.h>
+#include <octomap/OcTree.h>
 
 #include <Eigen/Dense>
 #include <cmath>
 #include <unordered_set>
+#include <limits>
 #include <tuple>
 
 class ShadeNewmanExploration {
@@ -72,7 +74,7 @@ private:
   bool RegisterCallbacks(const ros::NodeHandle& n);
 
   // Main callback. For each new map update, choose a direction.
-  void MapCallback(const octomap::Octomap& msg);
+  void MapCallback(const octomap_msgs::Octomap& msg);
 
   // Convert an Octomap octree to a regular grid.
   bool GenerateOccupancyGrid(octomap::OcTree* octree);
@@ -80,6 +82,8 @@ private:
                             double& x, double& y, double& z) const;
   bool CoordinatesToIndices(double x, double y, double z,
                             size_t& ii, size_t& jj, size_t& kk) const;
+  bool IndicesToIndex(size_t ii, size_t jj, size_t kk, size_t& idx) const;
+
 
   // Helper LaplaceIteration() does one iteration of Laplace solving, and
   // returns the maximum relative error.
@@ -102,8 +106,7 @@ private:
   // Member variables.
   Array3D<double>* potential_;
   Array3D<OccupancyType>* occupancy_;
-  std::unordered_set< std::tuple<size_t, size_t, size_t> > frontiers_;
-  std::unordered_set< std::tuple<size_t, size_t, size_t> > obstacles_;
+  std::unordered_set<size_t> frontiers_, obstacles_;
   ros::Subscriber octomap_subscriber_;
 
   double occupied_lower_threshold_; // lower bound on occupied likelihood
