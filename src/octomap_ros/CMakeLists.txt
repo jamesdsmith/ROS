@@ -9,6 +9,8 @@ catkin_package(
   LIBRARIES ${PROJECT_NAME} ${OCTOMAP_LIBRARIES}
   DEPENDS sensor_msgs tf octomap_msgs)
 
+cmake_policy(SET CMP0022 NEW) 
+
 include_directories(${catkin_INCLUDE_DIRS})
 link_directories(${catkin_LIBRARY_DIRS})
 link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES})

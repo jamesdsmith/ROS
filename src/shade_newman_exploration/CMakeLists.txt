@@ -11,6 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   octomap REQUIRED
   octomap_msgs
+  octomap_ros
   pcl_ros
   uav_slam
   utils
@@ -24,6 +25,7 @@ catkin_package(
     sensor_msgs
     geometry_msgs
     octomap_msgs
+    octomap_ros
     pcl_ros
     uav_slam
     utils
