@@ -104,7 +104,7 @@ namespace bsfm {
     //    top 9 bits, integer value
     //    bottom 7 bits, decimal
     ushort z_value = GetValue(u, v);
-    double z = (z_value >> 7) + (z_value & 127) / 128.0;
+    double z = double(z_value) / 128.0;
 
     double x = (u - cx) * z / focal_length_x;
     double y = (v - cy) * z / focal_length_y;
