@@ -1,0 +1,5 @@
+# Parameters for UAVLocalization.
+localization:
+
+  # Do odometry as a rough alignment step.
+  rough_alignment: true

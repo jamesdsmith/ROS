@@ -69,15 +69,6 @@ bool UAVOdometry::Initialize(const ros::NodeHandle& n) {
 
 // Load parameters.
 bool UAVOdometry::LoadParameters(const ros::NodeHandle& n) {
-  // Filter params.
-  if (!ros::param::get("/uav_slam/filter/voxel_leaf_size", voxel_leaf_size_))
-    return false;
-  if (!ros::param::get("/uav_slam/filter/sor_knn", sor_knn_))
-    return false;
-  if (!ros::param::get("/uav_slam/filter/sor_zscore", sor_zscore_))
-    return false;
-
-  // ICP params.
   if (!ros::param::get("/uav_slam/icp/ransac_thresh", ransac_thresh_))
     return false;
   if (!ros::param::get("/uav_slam/icp/tf_epsilon", tf_epsilon_))
@@ -123,33 +114,17 @@ void UAVOdometry::UpdateOdometry(const PointCloud::ConstPtr& cloud) {
   RunICP(cloud);
 }
 
-// Calculate incremental transform.
+// Calculate incremental transform. Assume incoming cloud is already filtered.
 void UAVOdometry::RunICP(const PointCloud::ConstPtr& cloud) {
-  PointCloud::Ptr sor_cloud(new PointCloud);
-  PointCloud::Ptr grid_cloud(new PointCloud);
-
-  // Voxel grid filter.
-  pcl::VoxelGrid<pcl::PointXYZ> grid_filter;
-  grid_filter.setInputCloud(cloud);
-  grid_filter.setLeafSize(voxel_leaf_size_, voxel_leaf_size_, voxel_leaf_size_);
-  grid_filter.filter(*grid_cloud);
-
-  // Statistical outlier removal.
-  pcl::StatisticalOutlierRemoval<pcl::PointXYZ> sor_filter;
-  sor_filter.setInputCloud(grid_cloud);
-  sor_filter.setMeanK(sor_knn_);
-  sor_filter.setStddevMulThresh(sor_zscore_);
-  sor_filter.filter(*sor_cloud);
-
   // Handle base case.
   if (!initialized_) {
-    pcl::copyPointCloud(*sor_cloud, *previous_cloud_);
+    pcl::copyPointCloud(*cloud, *previous_cloud_);
     initialized_ = true;
   }
 
   // Setup.
   pcl::GeneralizedIterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp;
-  icp.setInputSource(sor_cloud);
+  icp.setInputSource(cloud);
   icp.setInputTarget(previous_cloud_);
   icp.setMaxCorrespondenceDistance(corr_dist_);
   icp.setMaximumIterations(max_iters_);
@@ -160,7 +135,7 @@ void UAVOdometry::RunICP(const PointCloud::ConstPtr& cloud) {
   icp.align(*aligned_cloud_);
 
   // Update pointer to last point cloud.
-  pcl::copyPointCloud(*sor_cloud, *previous_cloud_);
+  pcl::copyPointCloud(*cloud, *previous_cloud_);
 
   // Get transform.
   Eigen::Matrix4d pose = icp.getFinalTransformation().cast<double>();

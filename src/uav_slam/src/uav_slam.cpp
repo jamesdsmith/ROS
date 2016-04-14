@@ -60,6 +60,11 @@ bool UAVSlam::Initialize(const ros::NodeHandle& n) {
     return false;
   }
 
+  if (!filter_.Initialize(n)) {
+    ROS_ERROR("%s: Failed to initialize PointCloudFilter.", name_.c_str());
+    return false;
+  }
+
   if (!localization_.Initialize(n, &mapper_, &odometry_)) {
     ROS_ERROR("%s: Failed to initialize UAVLocalization.", name_.c_str());
     return false;
@@ -95,7 +100,6 @@ bool UAVSlam::LoadParameters(const ros::NodeHandle& n) {
   if (!ros::param::get("/uav_slam/io/localized_frame", localized_frame_))
     return false;
 
-
   return true;
 }
 
@@ -127,16 +131,17 @@ void UAVSlam::TimerCallback(const ros::TimerEvent& event) {
 
   for (size_t ii = 0; ii < sorted_clouds.size(); ii++) {
     const PointCloud::ConstPtr cloud = sorted_clouds[ii];
+    PointCloud::Ptr filtered_cloud = filter_.Filter(cloud);
 
     // Localize.
-    localization_.Localize(cloud);
+    localization_.Localize(filtered_cloud);
 
     // Publish.
     stamp_.fromNSec(cloud->header.stamp * 1000);
     PublishPose(localization_.GetRefinedTransform(), localized_frame_);
     PublishPose(localization_.GetOdometryTransform(), odometry_frame_);
     PublishFullScan(cloud);
-    PublishFilteredScan(odometry_.GetPreviousCloud());
+    PublishFilteredScan(filtered_cloud);
   }
 }
 

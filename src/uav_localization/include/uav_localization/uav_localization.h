@@ -48,6 +48,7 @@
 #include <utils/math/transform_3d.h>
 #include <uav_odometry/uav_odometry.h>
 #include <uav_mapper/uav_mapper.h>
+
 #include <sensor_msgs/PointCloud2.h>
 #include <pcl/point_types.h>
 #include <pcl/octree/octree_search.h>
@@ -89,7 +90,7 @@ class UAVLocalization {
 
   double ransac_thresh_, tf_epsilon_, corr_dist_;
   int max_iters_;
-  bool initialized_;
+  bool initialized_, rough_alignment_;
   std::string name_;
 };
 

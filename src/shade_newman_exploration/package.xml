@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<package>
+  <name>shade_newman_exploration</name>
+  <version>0.0.0</version>
+  <description>The shade_newman_exploration package. Implements the exploration algorithm from Shade and Newman 2011 (http://rjshade.com/work/files/papers/pdf/shade_newman_icra2011_choosing.pdf).</description>
+
+  <author email="dfk@eecs.berkeley.edu">David Fridovich-Keil</author>
+  <maintainer email="dfk@eecs.berkeley.edu">David Fridovich-Keil</maintainer>
+  <license>GPL</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <build_depend>roscpp</build_depend>
+  <build_depend>sensor_msgs</build_depend>
+  <build_depend>geometry_msgs</build_depend>
+  <build_depend>octomap</build_depend>
+  <build_depend>octomap_msgs</build_depend>
+  <build_depend>octomap_ros</build_depend>
+  <build_depend>pcl_ros</build_depend>
+  <build_depend>uav_slam</build_depend>
+  <build_depend>utils</build_depend>
+
+  <run_depend>roscpp</run_depend>
+  <run_depend>sensor_msgs</run_depend>
+  <run_depend>geometry_msgs</run_depend>
+  <run_depend>octomap</run_depend>
+  <run_depend>octomap_msgs</run_depend>
+  <run_depend>octomap_ros</run_depend>
+  <run_depend>pcl_ros</run_depend>
+  <run_depend>uav_slam</run_depend>
+  <run_depend>utils</run_depend>
+</package>
+
