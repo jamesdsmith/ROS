@@ -1,5 +1,6 @@
 <launch>
   <param name="use_sim_time" value="true"/>
+  <arg name="octomap" default="true"/>
 
   <node name="uav_slam"
         pkg="uav_slam"
@@ -10,14 +11,36 @@
         <rosparam file="$(find uav_odometry)/config/icp.yaml"/>
 
         <!-- Filter parameters -->
-        <rosparam file="$(find uav_odometry)/config/filter.yaml"/>
+        <rosparam file="$(find point_cloud_filter)/config/filter.yaml"/>
 
         <!-- Mapper parameters -->
         <rosparam file="$(find uav_mapper)/config/octree.yaml"/>
 
         <!-- I/O parameters -->
         <rosparam file="$(find uav_slam)/config/io.yaml"/>
+
+        <!-- Localization parameters -->
+        <rosparam file="$(find uav_localization)/config/parameters.yaml"/>
+
+        <!-- Localization parameters -->
+        <rosparam file="$(find surface_fitting)/config/surface.yaml"/>
   </node>
+
+  <group if="$(arg octomap)">
+
+         <!-- Octomap server -->
+         <node pkg="octomap_server"
+               name="octomap_server"
+               type="octomap_server_node"
+               output="screen">
+
+               <!-- Topics -->
+               <remap from="cloud_in" to="/uav_slam/filtered"/>
+
+               <!-- Parameters -->
+               <rosparam file="$(find uav_slam)/config/octomap.yaml"/>
+         </node>
+  </group>
 
   <node name="transform"
         pkg="tf"

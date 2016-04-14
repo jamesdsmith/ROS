@@ -45,13 +45,16 @@
 
 #include <ros/ros.h>
 #include <message_synchronizer/message_synchronizer.h>
+#include <point_cloud_filter/point_cloud_filter.h>
 #include <utils/math/transform_3d.h>
 #include <uav_odometry/uav_odometry.h>
 #include <uav_mapper/uav_mapper.h>
 #include <uav_localization/uav_localization.h>
+
 #include <sensor_msgs/PointCloud2.h>
 #include <pcl/point_types.h>
 #include <pcl_ros/point_cloud.h>
+#include <tf2_ros/transform_broadcaster.h>
 #include <Eigen/Dense>
 #include <cmath>
 
@@ -83,6 +86,7 @@ class UAVSlam {
   UAVOdometry odometry_;
   UAVMapper mapper_;
   UAVLocalization localization_;
+  PointCloudFilter filter_;
 
   // Subscribers.
   ros::Subscriber point_cloud_subscriber_;

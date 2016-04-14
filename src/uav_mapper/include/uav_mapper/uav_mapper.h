@@ -51,6 +51,7 @@
 #include <pcl_ros/point_cloud.h>
 #include <Eigen/Dense>
 #include <cmath>
+#include <vector>
 
 typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
 typedef pcl::octree::OctreePointCloudSearch<pcl::PointXYZ> Octree;
@@ -64,6 +65,8 @@ class UAVMapper {
 
   // Find nearest neighbors.
   bool NearestNeighbors(const PointCloud::Ptr cloud, PointCloud::Ptr neighbors);
+  bool KNearestNeighbors(const pcl::PointXYZ& point, int k,
+                         std::vector<pcl::PointXYZ>& neighbors);
 
   // Add points to map.
   void InsertPoints(const PointCloud& cloud);

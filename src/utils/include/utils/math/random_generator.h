@@ -38,7 +38,7 @@
 #ifndef PATH_MATH_RANDOM_GENERATOR_H
 #define PATH_MATH_RANDOM_GENERATOR_H
 
-#include <glog/logging.h>
+#include <ros/ros.h>
 #include <math.h>
 #include <string.h>
 #include <time.h>
@@ -125,7 +125,8 @@ int RandomGenerator::Integer() const {
 // Generates a random integer in [0, 'max').
 int RandomGenerator::IntegerUniform(int max) const {
   if (max <= 0) {
-    LOG(WARNING) << "max <= 0. Returning 0.";
+    ROS_WARN("RandomGenerator: max <= 0. Returning 0.");
+
     // Eat a random number anyways and return 0.
     Integer();
     return 0;
@@ -136,7 +137,8 @@ int RandomGenerator::IntegerUniform(int max) const {
 
 int RandomGenerator::IntegerUniform(int min, int max) const {
   if (min >= max) {
-    LOG(WARNING) << "min >= max. Returning min.";
+    ROS_WARN("min >= max. Returning min.");
+
     // Eat a random number anyways and return min.
     Integer();
     return min;
@@ -172,7 +174,8 @@ double RandomGenerator::Double() const {
 
 double RandomGenerator::DoubleUniform(double min, double max) const {
     if (min >= max) {
-      LOG(WARNING) << "min >= max. Returning min.";
+      ROS_WARN("min >= max. Returning min.");
+
       // Eat a random number anyways and return min.
       Integer();
       return min;
