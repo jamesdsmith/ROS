@@ -63,14 +63,17 @@ Mat             disparity8(HEIGHT, WIDTH, CV_8UC1);
 
 // Avoid looking from the same camera twice in a row if possible (it isnt)
 int sequence_index = 0;
-#define SEQUENCE_COUNT 6
+#define SEQUENCE_COUNT 1
+// e_vbus_index camera_pair_sequence[SEQUENCE_COUNT][2] = {
+//     {e_vbus2, e_vbus3},
+//     {e_vbus4, e_vbus5},
+//     {e_vbus2, e_vbus4},
+//     {e_vbus3, e_vbus5},
+//     {e_vbus2, e_vbus5},
+//     {e_vbus3, e_vbus4},
+// };
 e_vbus_index camera_pair_sequence[SEQUENCE_COUNT][2] = {
     {e_vbus2, e_vbus3},
-    {e_vbus4, e_vbus5},
-    {e_vbus2, e_vbus4},
-    {e_vbus3, e_vbus5},
-    {e_vbus2, e_vbus5},
-    {e_vbus3, e_vbus4},
 };
 
 std::ostream& operator<<(std::ostream& out, const e_sdk_err_code value){
