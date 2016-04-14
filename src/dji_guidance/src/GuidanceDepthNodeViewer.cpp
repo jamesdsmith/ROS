@@ -53,10 +53,13 @@ void multi_image_callback(const dji_guidance::multi_image::ConstPtr& msg) {
           return;
         }
 
-        cv::Mat depth8(WIDTH, HEIGHT, CV_8UC1);
-        cv_ptr->image.convertTo(depth8, CV_8UC1);
-        cv::imshow("depth_image " + std::to_string(img.vbus_index), depth8);
-        waitKey(1);
+        if (cv_ptr) {
+            cv::Mat depth8(WIDTH, HEIGHT, CV_8UC1);
+            cv_ptr->image.convertTo(depth8, CV_8UC1);
+            //cv::imshow("depth_image " + std::to_string(img.vbus_index), cv_ptr->image);
+            cv::imshow("depth_image " + std::to_string(img.vbus_index), depth8);
+            waitKey(1);
+        }
     }
 }
 

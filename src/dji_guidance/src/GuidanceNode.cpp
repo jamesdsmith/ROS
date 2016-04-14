@@ -172,24 +172,22 @@ int my_callback(int data_type, int data_len, char *content)
             right_image_pub.publish(right_8.toImageMsg());
         }
 
-        bool hasDepthMap = false;
-        bool hasDisparityMap = false;
         // disabling the old depth image because its going to be too hard to sync CAMERA_ID with the
         // new sequence system. I am leaving this here until we do the node rewrite so that I can 
         // reference it during the rewrite if we want to change it to publish single depth images
-        if ( data->m_depth_image[CAMERA_ID] ){
-            memcpy(g_depth.data, data->m_depth_image[CAMERA_ID], IMAGE_SIZE * 2);
-            //g_depth.convertTo(depth8, CV_8UC1);
-            //imshow("depth", depth8);
-            //publish depth image
-            cv_bridge::CvImage depth_16;
-            g_depth.copyTo(depth_16.image);
-            depth_16.header.frame_id  = "guidance";
-            depth_16.header.stamp     = ros::Time::now();
-            depth_16.encoding     = sensor_msgs::image_encodings::MONO16;
-            depth_image_pub.publish(depth_16.toImageMsg());
-            hasDepthMap = true;
-        }
+        // if ( data->m_depth_image[CAMERA_ID] ){
+        //     memcpy(g_depth.data, data->m_depth_image[CAMERA_ID], IMAGE_SIZE * 2);
+        //     //g_depth.convertTo(depth8, CV_8UC1);
+        //     //imshow("depth", depth8);
+        //     //publish depth image
+        //     cv_bridge::CvImage depth_16;
+        //     g_depth.copyTo(depth_16.image);
+        //     depth_16.header.frame_id  = "guidance";
+        //     depth_16.header.stamp     = ros::Time::now();
+        //     depth_16.encoding     = sensor_msgs::image_encodings::MONO16;
+        //     depth_image_pub.publish(depth_16.toImageMsg());
+        // }
+
         if ( data->m_disparity_image[CAMERA_ID] ){
             memcpy(g_disparity.data, data->m_disparity_image[CAMERA_ID], IMAGE_SIZE * 2);
             //g_disparity.convertTo(disparity8, CV_8UC1);
@@ -201,29 +199,23 @@ int my_callback(int data_type, int data_len, char *content)
             disparity_16.header.stamp     = ros::Time::now();
             disparity_16.encoding         = sensor_msgs::image_encodings::MONO16;
             disparity_image_pub.publish(disparity_16.toImageMsg());
-            hasDisparityMap = true;
         }
 
-        if (hasDepthMap && hasDisparityMap) {
-            bool difference = false;
-            int differences = 0;
-            for (int u = 0; u < WIDTH && !difference; ++u) {
-                for (int v = 0; v < HEIGHT && !difference; ++v) {
-                    if (g_disparity.at<ushort>(v, u) != g_depth.at<ushort>(v, u)) {
-                        //std::cout << "(" << u << ", " << v << "): " << g_disparity.at<ushort>(v, u) << ", " << g_depth.at<ushort>(v, u) << std::endl;
-                        //std::cout << g_disparity.at<ushort>(v, u) << ", " << g_depth.at<ushort>(v, u) << std::endl;
-                        //difference = true;
-                        differences++;
-                    }
-                }
-            }
-            // if (differences > 0) {
-            //     std::cout << "Disparity and Depth are not the same, bitwise: " << differences << " differences" << std::endl;
-            // }
+        {
+            std::cout << "Image data pointers: " 
+                      << (data->m_depth_image[0] != 0)
+                      << ", " << (data->m_depth_image[1] != 0)
+                      << ", " << (data->m_depth_image[2] != 0)
+                      << ", " << (data->m_depth_image[3] != 0)
+                      << ", " << (data->m_depth_image[4] != 0)
+                      << ". Camera indices: " 
+                      << camera_pair_sequence[sequenceIndex][0] 
+                      << ", " << camera_pair_sequence[sequenceIndex][1] 
+                      << std::endl;
         }
 
         // Publish a multi_image of depth data
-        if (false && check_sequence_data(data)) {
+        if (check_sequence_data(data)) {
             dji_guidance::multi_image msg;
 
             msg.images.push_back(create_image_message(data, camera_pair_sequence[sequence_index][0]));
@@ -420,8 +412,8 @@ int main(int argc, char** argv)
     RETURN_IF_ERR(err_code);
     err_code = select_greyscale_image(CAMERA_ID, false);
     RETURN_IF_ERR(err_code);
-    err_code = select_depth_image(CAMERA_ID);
-    RETURN_IF_ERR(err_code);
+    // err_code = select_depth_image(CAMERA_ID);
+    // RETURN_IF_ERR(err_code);
     err_code = select_disparity_image(CAMERA_ID);
     RETURN_IF_ERR(err_code);
 
