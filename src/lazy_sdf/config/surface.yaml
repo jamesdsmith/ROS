@@ -1,4 +1,4 @@
-surface:
+sdf:
   # Standard deviation of additive Gaussian noise
   # (uncertainty in distance from surface).
   noise_sd: 1.0
@@ -12,3 +12,6 @@ surface:
 
   # Distance from surface to generate training points.
   training_delta: 0.1
+
+  # Maximum distance to go behind the surface.
+  max_negative_dist: 0.5

@@ -36,22 +36,22 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-// Defining the GPSurfaceEstimator class.
+// Defining the LazySDF class.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <surface_fitting/gp_surface_estimator.h>
+#include <surface_fitting/lazy_sdf.h>
 
 // Constructor/destructor.
-GPSurfaceEstimator::GPSurfaceEstimator() : initialized_(false) {}
-GPSurfaceEstimator::~GPSurfaceEstimator() {}
+LazySDF::LazySDF() : initialized_(false) {}
+LazySDF::~LazySDF() {}
 
 // Initialize.
-bool GPSurfaceEstimator::Initialize(const ros::NodeHandle& n, UAVMapper* map) {
+bool LazySDF::Initialize(const ros::NodeHandle& n) {
   name_ = ros::names::append(n.getNamespace(), "gp_surface_estimator");
 
-  if (!map) {
-    ROS_ERROR("%s: Pointer to UAVMapper object was null.", name_.c_str());
+  if (map_.Initialize(n)) {
+    ROS_ERROR("%s: Failed to initialize UAVMapper.", name_.c_str());
     return false;
   }
 
@@ -70,36 +70,40 @@ bool GPSurfaceEstimator::Initialize(const ros::NodeHandle& n, UAVMapper* map) {
   K12_ = Eigen::VectorXd::Zero(knn_);
   training_distances_ = Eigen::VectorXd::Zero(knn_);
 
-  // Set map.
-  map_ = map;
-
   initialized_ = true;
   return true;
 }
 
 // Load parameters.
-bool GPSurfaceEstimator::LoadParameters(const ros::NodeHandle& n) {
-  if (!ros::param::get("/uav_slam/surface/noise_sd", noise_sd_))
+bool LazySDF::LoadParameters(const ros::NodeHandle& n) {
+  if (!ros::param::get("/uav_slam/sdf/noise_sd", noise_sd_))
     return false;
-  if (!ros::param::get("/uav_slam/surface/gamma", gamma_))
+  if (!ros::param::get("/uav_slam/sdf/gamma", gamma_))
     return false;
-  if (!ros::param::get("/uav_slam/surface/knn", knn_))
+  if (!ros::param::get("/uav_slam/sdf/knn", knn_))
     return false;
-  if (!ros::param::get("/uav_slam/surface/training_delta", training_delta_))
+  if (!ros::param::get("/uav_slam/sdf/training_delta", training_delta_))
+    return false;
+  if (!ros::param::get("/uav_slam/sdf/max_negative_dist", max_negative_dist_))
     return false;
 
   return true;
 }
 
 // Register callbacks.
-bool GPSurfaceEstimator::RegisterCallbacks(const ros::NodeHandle& n) {
+bool LazySDF::RegisterCallbacks(const ros::NodeHandle& n) {
+  return true;
+}
+
+// Add a point cloud to the map.
+bool InsertPoints(const PointCloud::Ptr cloud, const pcl::PointXYZ& pose) {
+  // TODO!!
   return true;
 }
 
 // Compute signed distance and uncertainty to query point.
-void GPSurfaceEstimator::SignedDistance(const pcl::PointXYZ& query,
-                                        const pcl::PointXYZ& pose,
-                                        double& distance, double& variance) {
+void LazySDF::SignedDistance(const pcl::PointXYZ& query,
+                             double& distance, double& variance) {
   // Get nearest neigbors.
   std::vector<pcl::PointXYZ> neighbors;
   if (!map_->KNearestNeighbors(query, knn_, neighbors)) {
@@ -109,49 +113,39 @@ void GPSurfaceEstimator::SignedDistance(const pcl::PointXYZ& query,
     return;
   }
 
-  // Generate training data.
-  // TODO!! MAKE THIS MORE EFFICIENT!
-  std::vector<pcl::PointXYZ> training_points;
+  // Look up distances in the registry.
   for (size_t ii = 0; ii < neighbors.size(); ii++) {
-    pcl::PointXYZ front, back;
-    GenerateTrainingPoints(neighbors[ii], pose, front, back);
-    training_points.push_back(front);
-    training_distances_(2*ii) = -training_delta_;
-    training_points.push_back(back);
-    training_distances_(2*ii + 1) = training_delta_;
+    PointXYZ point = neighbors[ii];
+    training_distances_(ii) = registry.at(point);
   }
 
   // Compute covariance and cross covariance.
-  TrainingCovariance(training_points);
-  CrossCovariance(training_points, query);
+  TrainingCovariance(neighbors);
+  CrossCovariance(neighbors, query);
 
   // Gaussian conditioning.
   distance = K12_.transpose() * K11_.llt().solve(training_distances_);
   variance = 1.0 - K12_.transpose() * K11_.llt().solve(K12_);
 }
 
-
 // Generate a points in front of and behind a query point.
-void GPSurfaceEstimator::GenerateTrainingPoints(const pcl::PointXYZ& query,
-                                                const pcl::PointXYZ& pose,
-                                                pcl::PointXYZ& front,
-                                                pcl::PointXYZ& back) const {
-  double dx = query.x - pose.x;
-  double dy = query.y - pose.y;
-  double dz = query.z - pose.z;
+void LazySDF::AddRay(const pcl::PointXYZ& measured, const pcl::PointXYZ& pose) {
+  double dx = measured.x - pose.x;
+  double dy = measured.y - pose.y;
+  double dz = measured.z - pose.z;
   double norm = std::sqrt(dx*dx + dy*dy + dz*dz);
   dx /= norm; dy /= norm; dz /= norm;
 
-  front.x = query.x - training_delta_ * dx;
-  front.y = query.y - training_delta_ * dy;
-  front.z = query.z - training_delta_ * dz;
-  back.x = query.x + training_delta_ * dx;
-  back.y = query.y + training_delta_ * dy;
-  back.z = query.z + training_delta_ * dz;
+  front.x = measured.x - training_delta_ * dx;
+  front.y = measured.y - training_delta_ * dy;
+  front.z = measured.z - training_delta_ * dz;
+  back.x = measured.x + training_delta_ * dx;
+  back.y = measured.y + training_delta_ * dy;
+  back.z = measured.z + training_delta_ * dz;
 }
 
 // RBF covariance kernel.
-double GPSurfaceEstimator::RBF(const pcl::PointXYZ& p1,
+double LazySDF::RBF(const pcl::PointXYZ& p1,
                                const pcl::PointXYZ& p2) const {
   double dx = p1.x - p2.x;
   double dy = p1.y - p2.y;
@@ -160,7 +154,7 @@ double GPSurfaceEstimator::RBF(const pcl::PointXYZ& p1,
 }
 
 // Compute covariance of the training points.
-void GPSurfaceEstimator::TrainingCovariance(const std::vector<pcl::PointXYZ>& points) {
+void LazySDF::TrainingCovariance(const std::vector<pcl::PointXYZ>& points) {
   for (size_t ii = 0; ii < points.size(); ii++) {
     for (size_t jj = 0; jj < ii; jj++) {
       double rbf = RBF(points[ii], points[jj]);
@@ -175,7 +169,7 @@ void GPSurfaceEstimator::TrainingCovariance(const std::vector<pcl::PointXYZ>& po
 
 // Compute cross covariance vector of this query point against
 // all the training data.
-void GPSurfaceEstimator::CrossCovariance(const std::vector<pcl::PointXYZ>& points,
+void LazySDF::CrossCovariance(const std::vector<pcl::PointXYZ>& points,
                                          const pcl::PointXYZ& query) {
   for (size_t ii = 0; ii < points.size(); ii++)
     K12_(ii) = RBF(points[ii], query);

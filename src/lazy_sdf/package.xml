@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package>
-  <name>surface_fitting</name>
+  <name>lazy_sdf</name>
   <version>0.0.0</version>
-  <description>The surface_fitting package. Use Gaussian process regression to fit an implicit surface to a set of points.</description>
+  <description>The lazy_sdf package. Use Gaussian process regression to learn a signed distance function across the map.</description>
 
   <author email="dfk@eecs.berkeley.edu">David Fridovich-Keil</author>
   <maintainer email="dfk@eecs.berkeley.edu">David Fridovich-Keil</maintainer>

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(surface_fitting)
+project(lazy_sdf)
 
 #set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
@@ -27,8 +27,10 @@ link_directories(
   ${catkin_LIBRARY_DIRS}
 )
 
-file(GLOB SRC "src/*.cpp")
-add_library(${PROJECT_NAME} ${SRC})
+#file(GLOB SRC "src/*.cpp")
+#add_library(${PROJECT_NAME} ${SRC})
+
+add_library(${PROJECT_NAME} src/${PROJECT_NAME}.cpp)
 
 target_link_libraries(${PROJECT_NAME}
   ${catkin_LIBRARIES}

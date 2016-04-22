@@ -36,7 +36,7 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-// The GPSurfaceEstimator class. Uses Gaussian process regression to learn a
+// The LazySDF class. Uses Gaussian process regression to learn a
 // signed distance function (and hence an implicit surface) in 3D.
 //
 // For a detailed description of the underlying mathematics, refer to pp. 13-19
@@ -57,36 +57,41 @@
 
 #include <uav_mapper/uav_mapper.h>
 
-class GPSurfaceEstimator {
- public:
-  GPSurfaceEstimator();
-  ~GPSurfaceEstimator();
+typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
 
-  // Set initial points.
-  bool Initialize(const ros::NodeHandle& n, UAVMapper* map);
+class LazySDF {
+ public:
+  LazySDF();
+  ~LazySDF();
+
+  // Initialize.
+  bool Initialize(const ros::NodeHandle& n);
+
+  // Add a point cloud to the map.
+  bool InsertPoints(const PointCloud::Ptr cloud, const pcl::PointXYZ& pose);
 
   // Compute signed distance and uncertainty to query point.
-  void SignedDistance(const pcl::PointXYZ& query, const pcl::PointXYZ& pose,
+  void SignedDistance(const pcl::PointXYZ& query,
                       double& distance, double& variance);
 
  private:
   bool LoadParameters(const ros::NodeHandle& n);
   bool RegisterCallbacks(const ros::NodeHandle& n);
 
-  void GenerateTrainingPoints(const pcl::PointXYZ& query, const pcl::PointXYZ& pose,
-                              pcl::PointXYZ& front, pcl::PointXYZ& back) const;
+  void AddRay(const pcl::PointXYZ& measured, const pcl::PointXYZ& pose);
   double RBF(const pcl::PointXYZ& p1, const pcl::PointXYZ& p2) const;
   void TrainingCovariance(const std::vector<pcl::PointXYZ>& points);
   void CrossCovariance(const std::vector<pcl::PointXYZ>& points,
                        const pcl::PointXYZ& query);
 
   // Member variables.
-  UAVMapper* map_;
+  UAVMapper map_;
+  unordered_map<pcl::PointXYZ, double> registry_;
   Eigen::MatrixXd K11_;
   Eigen::VectorXd K12_, training_distances_;
 
   // Parameters.
-  double noise_sd_, gamma_, training_delta_;
+  double noise_sd_, gamma_, training_delta_, max_negative_dist;
   int knn_;
   bool initialized_;
   std::string name_;
