@@ -92,6 +92,9 @@ bool DepthCloudProjector::RegisterCallbacks(const ros::NodeHandle& n) {
   depth_sub_ =
     node.subscribe("/guidance/depth_image", 10,
                    &DepthCloudProjector::DepthMapCallback, this);
+  multi_img_sub_ =
+    node.subscribe("/guidance/depth_images", 10,
+                   &DepthCloudProjector::MultiImageCallback, this);
 
   // Publishers.
   cloud_pub_ = node.advertise<PointCloud>("/mapper/cloud", 10, false);
@@ -100,10 +103,10 @@ bool DepthCloudProjector::RegisterCallbacks(const ros::NodeHandle& n) {
 }
 
 // Point cloud callback.
-void DepthCloudProjector::DepthMapCallback(const sensor_msgs::Image& map) {
+void DepthCloudProjector::DepthMapCallback(const sensor_msgs::Image& msg) {
   cv_bridge::CvImagePtr cv_ptr;
   try {
-    cv_ptr = cv_bridge::toCvCopy(map, sensor_msgs::image_encodings::MONO16);
+    cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::MONO16);
   } catch (cv_bridge::Exception& e) {
     ROS_ERROR("cv_bridge exception: %s", e.what());
     return;
@@ -118,8 +121,8 @@ void DepthCloudProjector::DepthMapCallback(const sensor_msgs::Image& map) {
   //std::cout << "Projecting " << cl.size() << " points" << std::endl;
 
   cl.header.frame_id = "guidance";
-  cl.header.stamp = map.header.stamp.toNSec() / 1000;
-  cl.header.seq = map.header.seq;
+  cl.header.stamp = cv_ptr->header.stamp.toNSec() / 1000;
+  cl.header.seq = cv_ptr->header.seq;
 
   cloud_pub_.publish(cl.makeShared());
 }
@@ -136,44 +139,98 @@ void DepthCloudProjector::MultiImageCallback(const dji_guidance::multi_image::Co
       return;
     }
 
-    cv::Mat depth8(320, 240, CV_8UC1);
-    cv_ptr->image.convertTo(depth8, CV_8UC1);
+    // cv::Mat depth8(320, 240, CV_8UC1);
+    // cv_ptr->image.convertTo(depth8, CV_8UC1);
     
-    DepthMap dm(depth8);
+    DepthMap dm(cv_ptr->image);
     dm.SetInverted(false);
     Mapper m(true);
 
     PointCloud projection = m.ProjectDepthMap(dm);
 
-    math::Transform3D tform;
-    Eigen::Matrix3d rotation = GetRotationFor(img.vbus_index);
-    tform.SetRotation(rotation);
-    //math::Transform3D tform;;
+    math::Transform3D tform = GetRotationFor(img.vbus_index) * GetOffsetFor(img.vbus_index);
     PointCloud transformed;
     pcl::transformPointCloud(projection, transformed, tform.GetTransform());
 
-    cl = cl + projection;
+    cl = cl + transformed;
     cl.header.frame_id = "guidance";
     cl.header.stamp = cv_ptr->header.stamp.toNSec() / 1000;
+    cl.header.seq = cv_ptr->header.seq;
   }
-  std::cout << "Projected " << cl.size() << " points" << std::endl;
+  //std::cout << "Projected " << cl.size() << " points" << std::endl;
   cloud_pub_.publish(cl.makeShared());
 }
 
-Eigen::Matrix3d DepthCloudProjector::GetRotationFor(int index) {
-  /*
+/*
   1 front on M100
   2 right on M100
   3 rear  on M100
   4 left  on M100
   0 down  on M100
   */
+
+math::Transform3D DepthCloudProjector::GetOffsetFor(int index) {
+  Eigen::Matrix3d zero = math::EulerAnglesToMatrix(0,0,0);
+
+  // Translation spec:
+  // Units: meters?
+  // Eigen::Vector3d(x, y, z)
+  //    +x = backward
+  //    +y = down
+  //    +z = right
+
+  // Matrice 100 camera position description:
+  // Each of the side cameras are all 10 cm from the middle
+  // Each side camera is 3.5 cm offset to the left (looking in the camera direction)
+  // bottom is about 3.5 cm down
   switch (index) {
-    case 2: return math::EulerAnglesToMatrix(0, 0, DEG_TO_RAD(90));
-    case 3: return math::EulerAnglesToMatrix(0, 0, DEG_TO_RAD(180));
-    case 4: return math::EulerAnglesToMatrix(0, 0, DEG_TO_RAD(270));
-    case 0: return math::EulerAnglesToMatrix(0, DEG_TO_RAD(90), 0);
+    case 2: return math::Transform3D(zero, Eigen::Vector3d(-0.035, 0, 0.1));
+    case 3: return math::Transform3D(zero, Eigen::Vector3d(0.035, 0, -0.1));
+    case 4: return math::Transform3D(zero, Eigen::Vector3d(0.1, 0, 0.035));
+    case 0: return math::Transform3D(zero, Eigen::Vector3d(0.02, 0.035, -0.035));
     case 1:
-    default: return math::EulerAnglesToMatrix(0, 0, 0);
+    default:
+      return math::Transform3D(zero, Eigen::Vector3d(0, 0, 0));
+  }
+}
+
+math::Transform3D DepthCloudProjector::GetRotationFor(int index) {
+  // PITCH, YAW, ROLL
+  // Rotation examples:
+  //   90 degree pitch forward
+  //     math::EulerAnglesToMatrix(math::D2R(-90), 0, 0);
+  //   90 degree yaw to the right
+  //     math::EulerAnglesToMatrix(0, math::D2R(90), 0);
+  //   90 degree roll right (CW)
+  //     math::EulerAnglesToMatrix(0, 0, math::D2R(90));
+
+  math::Transform3D tform;
+  // pitch forward
+  Eigen::Matrix3d temp = math::EulerAnglesToMatrix(math::D2R(-90), 0, 0);
+  math::Transform3D pitch;
+  pitch.SetRotation(temp);
+
+  // yaw right
+  temp = math::EulerAnglesToMatrix(0, math::D2R(90), 0);
+  math::Transform3D yaw;
+  yaw.SetRotation(temp);
+
+  // roll right
+  temp = math::EulerAnglesToMatrix(0, 0, math::D2R(90));
+  math::Transform3D roll;
+  roll.SetRotation(temp);
+
+  
+  switch (index) {
+    // This was an experimental way to find the right rotations for each direction
+    // going forward we should just calculate the explicit values so we dont need to 
+    // be building these every time
+    case 2: return tform * pitch * yaw;
+    case 3: return tform * pitch * yaw * yaw;
+    case 4: return tform * pitch * yaw * yaw * yaw;
+    case 0: return tform * pitch * pitch;
+    case 1:
+    default:
+      return tform;
   }
 }

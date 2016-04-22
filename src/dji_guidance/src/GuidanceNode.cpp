@@ -25,7 +25,7 @@
 #include <geometry_msgs/TransformStamped.h> //IMU
 #include <geometry_msgs/Vector3Stamped.h> //velocity
 #include <sensor_msgs/LaserScan.h> //obstacle distance & ultrasonic
-
+#include <time.h>
 ros::Publisher depth_image_pub;
 ros::Publisher disparity_image_pub;
 ros::Publisher left_image_pub;
@@ -62,19 +62,24 @@ Mat             g_disparity(HEIGHT,WIDTH,CV_16SC1);
 Mat             disparity8(HEIGHT, WIDTH, CV_8UC1);
 
 // Avoid looking from the same camera twice in a row if possible (it isnt)
-int sequence_index = 0;
-#define SEQUENCE_COUNT 1
-// e_vbus_index camera_pair_sequence[SEQUENCE_COUNT][2] = {
-//     {e_vbus2, e_vbus3},
-//     {e_vbus4, e_vbus5},
-//     {e_vbus2, e_vbus4},
-//     {e_vbus3, e_vbus5},
-//     {e_vbus2, e_vbus5},
-//     {e_vbus3, e_vbus4},
-// };
-e_vbus_index camera_pair_sequence[SEQUENCE_COUNT][2] = {
+e_vbus_index camera_pair_sequence[][2] = {
     {e_vbus2, e_vbus3},
+    {e_vbus4, e_vbus5},
+    {e_vbus2, e_vbus4},
+    {e_vbus3, e_vbus5},
+    {e_vbus2, e_vbus5},
+    {e_vbus3, e_vbus4},
 };
+// e_vbus_index camera_pair_sequence[][2] = {
+//     {e_vbus4, e_vbus3},
+// };
+
+int sequence_index = 0;
+int sequence_count = (sizeof(camera_pair_sequence) / sizeof(camera_pair_sequence[0]));
+
+int frame_count = 0;
+int frame_delay = 2;
+int frame_cycle = 3;
 
 std::ostream& operator<<(std::ostream& out, const e_sdk_err_code value){
     const char* s = 0;
@@ -204,31 +209,37 @@ int my_callback(int data_type, int data_len, char *content)
             disparity_image_pub.publish(disparity_16.toImageMsg());
         }
 
-        {
-            std::cout << "Image data pointers: " 
-                      << (data->m_depth_image[0] != 0)
-                      << ", " << (data->m_depth_image[1] != 0)
-                      << ", " << (data->m_depth_image[2] != 0)
-                      << ", " << (data->m_depth_image[3] != 0)
-                      << ", " << (data->m_depth_image[4] != 0)
-                      << ". Camera indices: " 
-                      << camera_pair_sequence[sequence_index][0] 
-                      << ", " << camera_pair_sequence[sequence_index][1] 
-                      << std::endl;
+        // Publish a multi_image of depth data        
+        if (frame_count >= frame_delay) {
+            if (false) {
+                std::cout << "Image data pointers: " 
+                          << (data->m_depth_image[0] != 0)
+                          << ", " << (data->m_depth_image[1] != 0)
+                          << ", " << (data->m_depth_image[2] != 0)
+                          << ", " << (data->m_depth_image[3] != 0)
+                          << ", " << (data->m_depth_image[4] != 0)
+                          << ". Camera indices: " 
+                          << camera_pair_sequence[sequence_index][0] 
+                          << ", " << camera_pair_sequence[sequence_index][1] 
+                          << std::endl;
+            }
+
+            if (check_sequence_data(data)) {
+                dji_guidance::multi_image msg;
+
+                msg.images.push_back(create_image_message(data, camera_pair_sequence[sequence_index][0]));
+                msg.images.push_back(create_image_message(data, camera_pair_sequence[sequence_index][1]));
+
+                //std::cout << "publishing images for cameras: " << camera_pair_sequence[sequence_index][0] << ", " << camera_pair_sequence[sequence_index][1] << std::endl;
+                image_pub.publish(msg);
+            }
         }
 
-        // Publish a multi_image of depth data
-        if (check_sequence_data(data)) {
-            dji_guidance::multi_image msg;
-
-            msg.images.push_back(create_image_message(data, camera_pair_sequence[sequence_index][0]));
-            msg.images.push_back(create_image_message(data, camera_pair_sequence[sequence_index][1]));
-
+        if (frame_count >= frame_cycle) {
             // select next camera pairs in the sequence
-            sequence_index = (sequence_index + 1) % SEQUENCE_COUNT;
+            sequence_index = (sequence_index + 1) % sequence_count;
 
-            //std::cout << "publishing images for cameras: " << camera_pair_sequence[sequence_index][0] << ", " << camera_pair_sequence[sequence_index][1] << std::endl;
-
+            //std::cout << "selecting these new indices: " << camera_pair_sequence[sequence_index][0] << ", " << camera_pair_sequence[sequence_index][1] << std::endl;
             int err_code = stop_transfer();
             if (err_code) {
                 std::cout << "Error when stopping transfer while trying to switch cameras " << err_code << std::endl;
@@ -239,7 +250,9 @@ int my_callback(int data_type, int data_len, char *content)
             if (err_code) {
                 std::cout << "Error when restarting transfer while trying to switch cameras " << err_code << std::endl;
             }
-            image_pub.publish(msg);
+            frame_count = 0;
+        } else {
+            frame_count++;
         }
     }
 
