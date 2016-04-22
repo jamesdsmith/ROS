@@ -212,8 +212,8 @@ int my_callback(int data_type, int data_len, char *content)
                       << ", " << (data->m_depth_image[3] != 0)
                       << ", " << (data->m_depth_image[4] != 0)
                       << ". Camera indices: " 
-                      << camera_pair_sequence[sequenceIndex][0] 
-                      << ", " << camera_pair_sequence[sequenceIndex][1] 
+                      << camera_pair_sequence[sequence_index][0] 
+                      << ", " << camera_pair_sequence[sequence_index][1] 
                       << std::endl;
         }
 
