@@ -1,0 +1,13 @@
+#!/bin/bash
+
+TOP_DIR="$(cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+echo 'Creating the internal workspace'
+if [ ! -d "./src" ]; then
+  wstool init src
+fi
+catkin_make --cmake-args -DCMAKE_BUILD_TYPE=Release
+
+if [ -d "${TOP_DIR}/devel/setup.bash" ]; then
+  source ${TOP_DIR}/devel/setup.bash --extend
+fi
