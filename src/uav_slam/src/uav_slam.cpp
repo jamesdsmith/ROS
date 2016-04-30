@@ -119,7 +119,7 @@ bool UAVSlam::RegisterCallbacks(const ros::NodeHandle& n) {
     node.advertise<PointCloud>(filtered_topic_.c_str(), 10, false);
 
   // Timer.
-  timer_ = n.createTimer(ros::Duration(0.1), &UAVSlam::TimerCallback, this);
+  //timer_ = n.createTimer(ros::Duration(0.1), &UAVSlam::TimerCallback, this);
 
   return true;
 }
@@ -148,7 +148,18 @@ void UAVSlam::TimerCallback(const ros::TimerEvent& event) {
 
 // Point cloud callback.
 void UAVSlam::AddPointCloudCallback(const PointCloud::ConstPtr& cloud) {
-  synchronizer_.AddMessage(cloud);
+  //  synchronizer_.AddMessage(cloud);
+  PointCloud::Ptr filtered_cloud = filter_.Filter(cloud);
+
+  // Localize.
+  localization_.Localize(filtered_cloud);
+
+  // Publish.
+  stamp_.fromNSec(cloud->header.stamp * 1000);
+  PublishPose(localization_.GetRefinedTransform(), localized_frame_);
+  PublishPose(localization_.GetOdometryTransform(), odometry_frame_);
+  PublishFullScan(cloud);
+  PublishFilteredScan(filtered_cloud);
 }
 
 // Publish refimed transform.

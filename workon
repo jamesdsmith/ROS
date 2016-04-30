@@ -1,0 +1,6 @@
+#!/bin/bash
+
+TOP_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+source ${TOP_DIR}/devel/setup.bash --extend
+source /home/davidfridovichkeil/Documents/Developer/atom_mapping/internal/devel/setup.bash --extend

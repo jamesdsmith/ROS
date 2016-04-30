@@ -1,6 +1,6 @@
 <launch>
   <param name="use_sim_time" value="true"/>
-  <arg name="octomap" default="true"/>
+  <arg name="octomap" default="false"/>
 
   <node name="uav_slam"
         pkg="uav_slam"
@@ -22,8 +22,6 @@
         <!-- Localization parameters -->
         <rosparam file="$(find uav_localization)/config/parameters.yaml"/>
 
-        <!-- Localization parameters -->
-        <rosparam file="$(find surface_fitting)/config/surface.yaml"/>
   </node>
 
   <group if="$(arg octomap)">
