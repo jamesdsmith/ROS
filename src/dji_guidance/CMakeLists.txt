@@ -15,7 +15,8 @@ add_message_files(
   FILES
   set_camera_id.msg
   set_exposure_param.msg
-  guidance_image.msg
+  depth_image.msg
+  stereo_pair.msg
   multi_image.msg
 )
 

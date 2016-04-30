@@ -1,1 +1,1 @@
-guidance_image[] images
+depth_image[] images

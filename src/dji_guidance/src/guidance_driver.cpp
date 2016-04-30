@@ -36,18 +36,18 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-// Definitions for the Guidance class.
+// Definitions for the GuidanceDriver class.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <guidance/guidance.h>
+#include <guidance_driver/guidance_driver.h>
 
 // Constructor/destructor.
-Guidance::Guidance() : initialized_(false) {}
-Guidance::~Guidance() {}
+GuidanceDriver::GuidanceDriver() : initialized_(false) {}
+GuidanceDriver::~GuidanceDriver() {}
 
 // Initialize.
-bool Guidance::Initialize(const ros::NodeHandle& n) {
+bool GuidanceDriver::Initialize(const ros::NodeHandle& n) {
   name_ = ros::names::append(n.getNamespace(), "guidance");
 
   if (!LoadParameters(n)) {
@@ -65,12 +65,12 @@ bool Guidance::Initialize(const ros::NodeHandle& n) {
 }
 
 // Load parameters.
-bool Guidance::LoadParameters(const ros::NodeHandle& n) {
+bool GuidanceDriver::LoadParameters(const ros::NodeHandle& n) {
   return true;
 }
 
 // Register callbacks.
-bool Guidance::RegisterCallbacks(const ros::NodeHandle& n) {
+bool GuidanceDriver::RegisterCallbacks(const ros::NodeHandle& n) {
   ros::NodeHandle node(n);
 
   // Subscriber.

@@ -108,8 +108,8 @@ std::ostream& operator<<(std::ostream& out, const e_sdk_err_code value){
     return out << s;
 }
 
-dji_guidance::guidance_image create_image_message(image_data* data, e_vbus_index idx) {
-    dji_guidance::guidance_image img;
+dji_guidance::depth_image create_image_message(image_data* data, e_vbus_index idx) {
+    dji_guidance::depth_image img;
     if (data->m_depth_image[idx]) {
         img.vbus_index = idx;
 
@@ -164,28 +164,71 @@ int my_callback(int data_type, int data_len, char *content)
     {        
         image_data* data = (image_data*)content;
 
-        if ( data->m_greyscale_image_left[CAMERA_ID] ){
-            memcpy(g_greyscale_image_left.data, data->m_greyscale_image_left[CAMERA_ID], IMAGE_SIZE);
-            //imshow("left",  g_greyscale_image_left);
-            // publish left greyscale image
-            cv_bridge::CvImage left_8;
-            g_greyscale_image_left.copyTo(left_8.image);
-            left_8.header.frame_id  = "guidance";
-            left_8.header.stamp = ros::Time::now();
-            left_8.encoding     = sensor_msgs::image_encodings::MONO8;
-            left_image_pub.publish(left_8.toImageMsg());
+        //std::cout << "Recieved images: ";
+        bool gotImages = false;
+        for (int i = 0; i < 5; i++) {
+            if ( data->m_greyscale_image_left[i] ){
+                memcpy(g_greyscale_image_left.data, data->m_greyscale_image_left[i], IMAGE_SIZE);
+                //imshow("left",  g_greyscale_image_left);
+                // publish left greyscale image
+                cv_bridge::CvImage left_8;
+                g_greyscale_image_left.copyTo(left_8.image);
+                left_8.header.frame_id  = "guidance";
+                left_8.header.stamp = ros::Time::now();
+                left_8.encoding     = sensor_msgs::image_encodings::MONO8;
+                left_image_pub.publish(left_8.toImageMsg());
+                //std::cout << i << "L, ";
+                gotImages = true;
+            }
+            if ( data->m_greyscale_image_right[i] ){
+                memcpy(g_greyscale_image_right.data, data->m_greyscale_image_right[i], IMAGE_SIZE);
+                //imshow("right", g_greyscale_image_right);
+                // publish right greyscale image
+                cv_bridge::CvImage right_8;
+                g_greyscale_image_right.copyTo(right_8.image);
+                right_8.header.frame_id  = "guidance";
+                right_8.header.stamp     = ros::Time::now();
+                right_8.encoding     = sensor_msgs::image_encodings::MONO8;
+                right_image_pub.publish(right_8.toImageMsg());
+                //std::cout << i << "R, ";
+                gotImages = true;
+            }
         }
-        if ( data->m_greyscale_image_right[CAMERA_ID] ){
-            memcpy(g_greyscale_image_right.data, data->m_greyscale_image_right[CAMERA_ID], IMAGE_SIZE);
-            //imshow("right", g_greyscale_image_right);
-            // publish right greyscale image
-            cv_bridge::CvImage right_8;
-            g_greyscale_image_right.copyTo(right_8.image);
-            right_8.header.frame_id  = "guidance";
-            right_8.header.stamp     = ros::Time::now();
-            right_8.encoding     = sensor_msgs::image_encodings::MONO8;
-            right_image_pub.publish(right_8.toImageMsg());
+        //std::cout << std::endl;
+
+        if (gotImages) {
+            frames += 1;
         }
+
+        milliseconds now = duration_cast<milliseconds>(system_clock::now().time_since_epoch());
+        if ((now - start).count() > 1000) {
+            std::cout << "SDK pull rate: " << ((float)frames / (now - start).count()) * 1000.f << std::endl;
+            start = now;
+            frames = 0;
+        }
+
+        // if ( data->m_greyscale_image_left[CAMERA_ID] ){
+        //     memcpy(g_greyscale_image_left.data, data->m_greyscale_image_left[CAMERA_ID], IMAGE_SIZE);
+        //     //imshow("left",  g_greyscale_image_left);
+        //     // publish left greyscale image
+        //     cv_bridge::CvImage left_8;
+        //     g_greyscale_image_left.copyTo(left_8.image);
+        //     left_8.header.frame_id  = "guidance";
+        //     left_8.header.stamp = ros::Time::now();
+        //     left_8.encoding     = sensor_msgs::image_encodings::MONO8;
+        //     left_image_pub.publish(left_8.toImageMsg());
+        // }
+        // if ( data->m_greyscale_image_right[CAMERA_ID] ){
+        //     memcpy(g_greyscale_image_right.data, data->m_greyscale_image_right[CAMERA_ID], IMAGE_SIZE);
+        //     //imshow("right", g_greyscale_image_right);
+        //     // publish right greyscale image
+        //     cv_bridge::CvImage right_8;
+        //     g_greyscale_image_right.copyTo(right_8.image);
+        //     right_8.header.frame_id  = "guidance";
+        //     right_8.header.stamp     = ros::Time::now();
+        //     right_8.encoding     = sensor_msgs::image_encodings::MONO8;
+        //     right_image_pub.publish(right_8.toImageMsg());
+        // }
 
         // disabling the old depth image because its going to be too hard to sync CAMERA_ID with the
         // new sequence system. I am leaving this here until we do the node rewrite so that I can 
@@ -203,7 +246,7 @@ int my_callback(int data_type, int data_len, char *content)
         //     depth_image_pub.publish(depth_16.toImageMsg());
         // }
 
-        if ( data->m_disparity_image[CAMERA_ID] ){
+        if ( false && data->m_disparity_image[CAMERA_ID] ){
             memcpy(g_disparity.data, data->m_disparity_image[CAMERA_ID], IMAGE_SIZE * 2);
             //g_disparity.convertTo(disparity8, CV_8UC1);
             //imshow("disparity", disparity8);
@@ -217,7 +260,7 @@ int my_callback(int data_type, int data_len, char *content)
         }
 
         // Publish a multi_image of depth data        
-        if (frame_count >= frame_delay) {
+        if (false && frame_count >= frame_delay) {
             if (false) {
                 std::cout << "Image data pointers: " 
                           << (data->m_depth_image[0] != 0)
@@ -250,7 +293,7 @@ int my_callback(int data_type, int data_len, char *content)
             }
         }
 
-        if (frame_count >= frame_cycle) {
+        if (false && frame_count >= frame_cycle) {
             // select next camera pairs in the sequence
             sequence_index = (sequence_index + 1) % sequence_count;
 
@@ -402,8 +445,8 @@ int main(int argc, char** argv)
     
     depth_image_pub         = my_node.advertise<sensor_msgs::Image>("/guidance/depth_image",1);
     disparity_image_pub     = my_node.advertise<sensor_msgs::Image>("/guidance/disparity_image",1);
-    left_image_pub          = my_node.advertise<sensor_msgs::Image>("/guidance/left_image",1);
-    right_image_pub         = my_node.advertise<sensor_msgs::Image>("/guidance/right_image",1);
+    left_image_pub          = my_node.advertise<sensor_msgs::Image>("/guidance/left_image",5);
+    right_image_pub         = my_node.advertise<sensor_msgs::Image>("/guidance/right_image",5);
     imu_pub                 = my_node.advertise<geometry_msgs::TransformStamped>("/guidance/imu",1);
     velocity_pub            = my_node.advertise<geometry_msgs::Vector3Stamped>("/guidance/velocity",1);
     obstacle_distance_pub   = my_node.advertise<sensor_msgs::LaserScan>("/guidance/obstacle_distance",1);
@@ -439,6 +482,18 @@ int main(int argc, char** argv)
     }
     
     /* select data */
+    err_code = select_greyscale_image(e_vbus2, false);
+    err_code = select_greyscale_image(e_vbus2, true);
+    
+    err_code = select_greyscale_image(e_vbus3, false);
+    err_code = select_greyscale_image(e_vbus3, true);
+    
+    err_code = select_greyscale_image(e_vbus4, false);
+    err_code = select_greyscale_image(e_vbus4, true);
+
+    err_code = select_greyscale_image(e_vbus5, false);
+    err_code = select_greyscale_image(e_vbus5, true);
+    
     //err_code = select_greyscale_image(CAMERA_ID, true);
     RETURN_IF_ERR(err_code);
     //err_code = select_greyscale_image(CAMERA_ID, false);
@@ -450,12 +505,12 @@ int main(int argc, char** argv)
 
     set_image_frequecy(e_frequecy_20);
 
-    select_camera_pair(sequence_index);
+    //select_camera_pair(sequence_index);
 
-    select_imu();
-    select_ultrasonic();
-    select_obstacle_distance();
-    select_velocity();
+    // select_imu();
+    // select_ultrasonic();
+    // select_obstacle_distance();
+    // select_velocity();
     /* start data transfer */
     err_code = set_sdk_event_handler(my_callback);
     RETURN_IF_ERR(err_code);

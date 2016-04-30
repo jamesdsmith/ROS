@@ -36,26 +36,40 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-// This defines the guidance node.
+// This defines the DepthCloudProjector class.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#ifndef GUIDANCE_DRIVER_H
+#define GUIDANCE_DRIVER_H
+
+#include <memory>
 #include <ros/ros.h>
-#include <guidance/guidance.h>
+#include <Eigen/Dense>
 
-int main(int argc, char** argv) {
-  // Generate a new node.
-  ros::init(argc, argv, "guidance");
-  ros::NodeHandle n("~");
+class GuidanceDriver {
+ public:
+  explicit GuidanceDriver();
+  ~GuidanceDriver();
 
-  // Initialize a new projector.
-  Guidance guidance;
-  if (!guidance.Initialize(n)) {
-    ROS_ERROR("%s: Failed to initialize Guidance.",
-              ros::this_node::getName().c_str());
-    return EXIT_FAILURE;
-  }
+  bool Initialize(const ros::NodeHandle& n);
 
-  ros::spin();
-  return EXIT_SUCCESS;
-}
+ private:
+  bool LoadParameters(const ros::NodeHandle& n);
+  bool RegisterCallbacks(const ros::NodeHandle& n);
+
+  // Callbacks.
+  //void DepthMapCallback(const sensor_msgs::Image& map);
+
+  // Publishers/subscribers.
+  //ros::Publisher cloud_pub_;
+  //ros::Subscriber depth_sub_;
+
+  // Time stamp.
+  ros::Time stamp_;
+
+  bool initialized_;
+  std::string name_;
+};
+
+#endif

@@ -68,8 +68,8 @@ std::ostream& operator<<(std::ostream& out, const e_sdk_err_code value){
     return out << s;
 }
 
-dji_guidance::guidance_image create_image_message(image_data* data, e_vbus_index idx) {
-    dji_guidance::guidance_image img;
+dji_guidance::depth_image create_image_message(image_data* data, e_vbus_index idx) {
+    dji_guidance::depth_image img;
     if (data->m_depth_image[idx]) {
         img.vbus_index = idx;
 
