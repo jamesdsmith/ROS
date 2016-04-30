@@ -41,6 +41,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <guidance_driver/guidance_driver.h>
+#include <dji/DJI_guidance.h>
+#include <dji/DJI_utility.h>
 
 // @TODO high priority, figure something out for this
 #define WIDTH 320
@@ -50,6 +52,8 @@
 // This is the unfortunate result of not allowing us to pass an object along with
 // our SDK callback function...
 static GuidanceDriver* guidance_driver;
+DJI_lock g_lock;
+DJI_event g_event;
 
 // Constructor/destructor.
 GuidanceDriver::GuidanceDriver() : initialized_(false) {}
@@ -93,15 +97,14 @@ bool GuidanceDriver::RegisterCallbacks(const ros::NodeHandle& n) {
   //                  &DepthCloudProjector::DepthMapCallback, this);
 
   // Publishers.
-  depth_image_pub_       = my_node.advertise<sensor_msgs::Image>("/guidance/depth_image",1);
-  disparity_image_pub_   = my_node.advertise<sensor_msgs::Image>("/guidance/disparity_image",1);
-  left_image_pub_        = my_node.advertise<sensor_msgs::Image>("/guidance/left_image",5);
-  right_image_pub_       = my_node.advertise<sensor_msgs::Image>("/guidance/right_image",5);
-  imu_pub_               = my_node.advertise<geometry_msgs::TransformStamped>("/guidance/imu",1);
-  velocity_pub_          = my_node.advertise<geometry_msgs::Vector3Stamped>("/guidance/velocity",1);
-  obstacle_distance_pub_ = my_node.advertise<sensor_msgs::LaserScan>("/guidance/obstacle_distance",1);
-  ultrasonic_pub_        = my_node.advertise<sensor_msgs::LaserScan>("/guidance/ultrasonic",1);
-  multi_image_pub_       = my_node.advertise<dji_guidance::multi_image>("/guidance/depth_images",1);
+  depth_image_pub_       = node.advertise<sensor_msgs::Image>("/guidance/depth_image",1);
+  disparity_image_pub_   = node.advertise<sensor_msgs::Image>("/guidance/disparity_image",1);
+  left_image_pub_        = node.advertise<sensor_msgs::Image>("/guidance/left_image",5);
+  right_image_pub_       = node.advertise<sensor_msgs::Image>("/guidance/right_image",5);
+  imu_pub_               = node.advertise<geometry_msgs::TransformStamped>("/guidance/imu",1);
+  velocity_pub_          = node.advertise<geometry_msgs::Vector3Stamped>("/guidance/velocity",1);
+  obstacle_distance_pub_ = node.advertise<sensor_msgs::LaserScan>("/guidance/obstacle_distance",1);
+  ultrasonic_pub_        = node.advertise<sensor_msgs::LaserScan>("/guidance/ultrasonic",1);
 
   return true;
 }
@@ -147,11 +150,11 @@ bool GuidanceDriver::InitGuidanceSDK() {
     return false;
   }
 
-  if (set_sdk_event_handler(OnSDKEvent) != 0) {
+  if (set_sdk_event_handler(OnSDKEventCallback) != 0) {
     ROS_ERROR("%s: Failure while setting Guidance SDK event handler. Aborting startup.", name_.c_str());
     return false;
   } else {
-    guiance_driver = this;
+    guidance_driver = this;
   }
 
   /* start data transfer */
@@ -186,12 +189,12 @@ bool GuidanceDriver::InitGuidanceData() {
  * All this should do is forward the call on to the GuidanceDriver object
  * so that the callback can have access to the GuidanceDriver member functions, etc
  */
-int OnSDKEvent(int data_type, int data_len, char* content) {
+int GuidanceDriver::OnSDKEventCallback(int data_type, int data_len, char* content) {
   // It should NOT be possible for guidance_driver to be null, but you never know!
   if (guidance_driver != NULL) {
     return guidance_driver->OnSDKEvent(data_type, data_len, content);
   } else {
-    ROS_ERROR("%s: Recieved SDK callback from DJI Guidance device, but there is no active guidance driver!", name_.c_str());
+    //ROS_ERROR("%s: Recieved SDK callback from DJI Guidance device, but there is no active guidance driver!", name_.c_str());
     return -1;
   }
 }
@@ -228,10 +231,10 @@ int GuidanceDriver::OnSDKEvent(int data_type, int data_len, char* content) {
 bool GuidanceDriver::ProcessImageData(char* content) {
   image_data* data = (image_data*)content;
   
-  Cv::Mat greyscale_left(HEIGHT, WIDTH, CV_8UC1);
-  Cv::Mat greyscale_right(HEIGHT, WIDTH, CV_8UC1);
-  Cv::Mat disparity(HEIGHT, WIDTH, CV_16SC1);
-  Cv::Mat depth(HEIGHT, WIDTH, CV_16SC1);
+  cv::Mat greyscale_left(HEIGHT, WIDTH, CV_8UC1);
+  cv::Mat greyscale_right(HEIGHT, WIDTH, CV_8UC1);
+  cv::Mat disparity(HEIGHT, WIDTH, CV_16SC1);
+  cv::Mat depth(HEIGHT, WIDTH, CV_16SC1);
 
   for (int i = 0; i < CAMERA_PAIR_NUM; ++i) {
     if (data->m_greyscale_image_left[i]) {
@@ -253,34 +256,34 @@ bool GuidanceDriver::ProcessImageData(char* content) {
   }
 }
 
-bool GuidanceDriver::ProcessGreyscaleLeftImage(Cv::Math img) {
+bool GuidanceDriver::ProcessGreyscaleLeftImage(cv::Mat img) {
   cv_bridge::CvImage left;
-  g_greyscale_image_left.copyTo(left.image);
+  img.copyTo(left.image);
   left.header.frame_id = "guidance";
   left.header.stamp    = ros::Time::now();
   left.encoding        = sensor_msgs::image_encodings::MONO8;
-  left_image_pub.publish(left.toImageMsg());
+  left_image_pub_.publish(left.toImageMsg());
 }
 
-bool GuidanceDriver::ProcessGreyscaleRightImage(Cv::Math img) {
+bool GuidanceDriver::ProcessGreyscaleRightImage(cv::Mat img) {
   cv_bridge::CvImage right;
-  g_greyscale_image_right.copyTo(right.image);
+  img.copyTo(right.image);
   right.header.frame_id = "guidance";
   right.header.stamp    = ros::Time::now();
   right.encoding        = sensor_msgs::image_encodings::MONO8;
-  right_image_pub.publish(right.toImageMsg());
+  right_image_pub_.publish(right.toImageMsg());
 }
 
-bool GuidanceDriver::ProcessDepthImage(Cv::Mat img) {
+bool GuidanceDriver::ProcessDepthImage(cv::Mat img) {
   cv_bridge::CvImage depth;
-  g_depth.copyTo(depth.image);
+  img.copyTo(depth.image);
   depth.header.frame_id = "guidance";
   depth.header.stamp    = ros::Time::now();
   depth.encoding        = sensor_msgs::image_encodings::MONO16;
-  depth_image_pub.publish(depth.toImageMsg());
+  depth_image_pub_.publish(depth.toImageMsg());
 }
 
-bool GuidanceDriver::ProcessDisparityImage(Cv::Mat img) {
+bool GuidanceDriver::ProcessDisparityImage(cv::Mat img) {
   cv_bridge::CvImage disparity;
   img.copyTo(disparity.image);
   disparity.header.frame_id = "guidance";
@@ -309,7 +312,7 @@ bool GuidanceDriver::ProcessIMUData(char* content) {
   g_imu.transform.rotation.x = imu_data->q[1];
   g_imu.transform.rotation.y = imu_data->q[2];
   g_imu.transform.rotation.z = imu_data->q[3];
-  imu_pub.publish(g_imu);
+  imu_pub_.publish(g_imu);
 
   return true;
 }
@@ -335,7 +338,7 @@ bool GuidanceDriver::ProcessUltrasonicData(char* content) {
     g_ul.ranges[d] = 0.001f * ultrasonic->ultrasonic[d];
     g_ul.intensities[d] = 1.0 * ultrasonic->reliability[d];
   }
-  ultrasonic_pub.publish(g_ul);
+  ultrasonic_pub_.publish(g_ul);
 
   return true;
 }
@@ -355,7 +358,7 @@ bool GuidanceDriver::ProcessVelocityData(char* content) {
   g_vo.vector.x = 0.001f * vo->vx;
   g_vo.vector.y = 0.001f * vo->vy;
   g_vo.vector.z = 0.001f * vo->vz;
-  velocity_pub.publish(g_vo);
+  velocity_pub_.publish(g_vo);
 
   return true;
 }
@@ -380,18 +383,18 @@ bool GuidanceDriver::ProcessObstacleDistanceData(char* content) {
   for (int i = 0; i < CAMERA_PAIR_NUM; ++i) {
     g_oa.ranges[i] = 0.01f * oa->distance[i];
   }
-  obstacle_distance_pub.publish(g_oa);
+  obstacle_distance_pub_.publish(g_oa);
 
   return true;
 }
 
 bool GuidanceDriver::SelectCameraPair(camera_direction dir) {
   // Select right
-  if (select_greyscale_image(dir, false)) {
+  if (select_greyscale_image((e_vbus_index)dir, false)) {
     return false;
   }
   // Select left
-  if (select_greyscale_image(dir, true)) {
+  if (select_greyscale_image((e_vbus_index)dir, true)) {
     return false;
   }
 }
@@ -427,7 +430,7 @@ bool GuidanceDriver::UpdateStereoCalibration() {
 void GuidanceDriver::PrintOnlineStatus() {
   std::cout << "Sensor online status: ";
   for (int i = 0; i < CAMERA_PAIR_NUM; ++i) {
-    std::cout << online_status[i] << " ";
+    std::cout << online_status_[i] << " ";
   }
   std::cout << std::endl;
 }
@@ -435,6 +438,9 @@ void GuidanceDriver::PrintOnlineStatus() {
 void GuidanceDriver::PrintStereoCalibration() {
   std::cout << "cu\tcv\tfocal\tbaseline" << std::endl;
   for (int i = 0; i < CAMERA_PAIR_NUM; ++i) {
-    std::cout << cali[i].cu << "\t" << cali[i].cv << "\t" << cali[i].focal << "\t" << cali[i].baseline << std::endl;
+    std::cout << stereo_calibration_[i].cu 
+      << "\t" << stereo_calibration_[i].cv 
+      << "\t" << stereo_calibration_[i].focal 
+      << "\t" << stereo_calibration_[i].baseline << std::endl;
   }
 }

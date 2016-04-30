@@ -45,8 +45,18 @@
 
 #include <memory>
 #include <ros/ros.h>
-#include <Eigen/Dense>
-#include <dji_guidance/DJI_guidance.h>
+#include <dji/DJI_guidance.h>
+#include <dji/DJI_utility.h>
+#include <opencv/cv.h>
+#include <cv_bridge/cv_bridge.h>
+#include <sensor_msgs/Image.h>
+#include <sensor_msgs/image_encodings.h>
+#include <stdio.h>
+#include <string.h>
+#include <iostream>
+#include <geometry_msgs/TransformStamped.h>
+#include <geometry_msgs/Vector3Stamped.h>
+#include <sensor_msgs/LaserScan.h>
 
 /**
  * Allows us to configure camera directions to specific indices
@@ -93,17 +103,20 @@ class GuidanceDriver {
   void PrintStereoCalibration();
 
   // SDK Callback
+public:
   int OnSDKEvent(int data_type, int data_len, char* content);
+private:
+  static int OnSDKEventCallback(int data_type, int data_len, char* content);
   bool ProcessImageData(char* content);
   bool ProcessIMUData(char* content);
   bool ProcessUltrasonicData(char* content);
   bool ProcessVelocityData(char* content);
   bool ProcessObstacleDistanceData(char* content);
 
-  bool ProcessGreyscaleLeftImage(Cv::Math img);
-  bool ProcessGreyscaleRightImage(Cv::Math img);
-  bool ProcessDepthImage(Cv::Mat img);
-  bool ProcessDisparityImage(Cv::Mat img);
+  bool ProcessGreyscaleLeftImage(cv::Mat img);
+  bool ProcessGreyscaleRightImage(cv::Mat img);
+  bool ProcessDepthImage(cv::Mat img);
+  bool ProcessDisparityImage(cv::Mat img);
 
   // Callbacks.
   //void DepthMapCallback(const sensor_msgs::Image& map);
@@ -119,7 +132,6 @@ class GuidanceDriver {
   ros::Publisher obstacle_distance_pub_;
   ros::Publisher velocity_pub_;
   ros::Publisher ultrasonic_pub_;
-  ros::Publisher multi_image_pub_;
 
   // Time stamp.
   ros::Time stamp_;
@@ -129,7 +141,7 @@ class GuidanceDriver {
 
   // Store data from the sdk
   stereo_cali stereo_calibration_[CAMERA_PAIR_NUM];
-  int online_status_[CAMERA_PAIR_NUM]
+  int online_status_[CAMERA_PAIR_NUM];
 };
 
 #endif

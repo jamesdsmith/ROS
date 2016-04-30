@@ -1,6 +1,12 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(dji_guidance)
 
+#set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_LIST_DIR}/cmake")
+
+if (COMPILER_SUPPORTS_CXX11)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+endif()
+
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   cv_bridge
@@ -8,8 +14,8 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   geometry_msgs
   message_generation
+  OpenCV REQUIRED
 )
-find_package(OpenCV REQUIRED)
 
 add_message_files(
   FILES
@@ -29,11 +35,16 @@ generate_messages(
 
 catkin_package(
   INCLUDE_DIRS include
-  CATKIN_DEPENDS roscpp message_runtime
+  LIBRARIES ${PROJECT_NAME}
+  CATKIN_DEPENDS
+    roscpp
+    message_runtime
 )
 
 include_directories(
+  include
   ${catkin_INCLUDE_DIRS}
+  ${OpenCV_INCLUDE_DIRS}
 )
 
 MESSAGE("System is: " ${CMAKE_SYSTEM_PROCESSOR})
@@ -56,6 +67,21 @@ else ()
 endif ()
 
 include_directories(${PROJECT_SOURCE_DIR}/include)
+
+add_library(${PROJECT_NAME}
+  ${PROJECT_SOURCE_DIR}/src/DJI_utility.cpp
+  ${PROJECT_SOURCE_DIR}/src/guidance_driver.cpp
+)
+
+add_executable(guidance_driver_node ${PROJECT_SOURCE_DIR}/src/guidance_driver_node.cpp)
+target_link_libraries(guidance_driver_node
+  ${PROJECT_NAME}
+  DJI_guidance
+  usb-1.0
+  ${catkin_LIBRARIES}
+  ${OpenCV_LIBRARIES}
+)
+add_dependencies(guidance_driver_node dji_guidance_generate_messages_cpp)
 
 add_executable(guidanceNode ${PROJECT_SOURCE_DIR}/src/GuidanceNode.cpp ${PROJECT_SOURCE_DIR}/src/DJI_utility.cpp)
 add_executable(guidanceDepthNode ${PROJECT_SOURCE_DIR}/src/GuidanceDepthNode.cpp ${PROJECT_SOURCE_DIR}/src/DJI_utility.cpp)
