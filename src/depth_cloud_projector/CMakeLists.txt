@@ -18,6 +18,7 @@ find_package(catkin REQUIRED COMPONENTS
   OpenCV REQUIRED
   dji_guidance
   utils
+  point_cloud_filter
 )
 
 catkin_package(
@@ -29,6 +30,7 @@ catkin_package(
     geometry_msgs
     pcl_ros
     utils
+    point_cloud_filter 
 )
 
 include_directories(

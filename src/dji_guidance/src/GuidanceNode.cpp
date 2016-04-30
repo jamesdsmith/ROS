@@ -20,10 +20,13 @@
 #include "guidance_helpers.h"
 #include "dji_guidance/set_camera_id.h"
 #include "dji_guidance/set_exposure_param.h"
+#include "dji_guidance/multi_image.h"
 
 #include <geometry_msgs/TransformStamped.h> //IMU
 #include <geometry_msgs/Vector3Stamped.h> //velocity
 #include <sensor_msgs/LaserScan.h> //obstacle distance & ultrasonic
+#include <time.h>
+#include <chrono>
 
 ros::Publisher depth_image_pub;
 ros::Publisher disparity_image_pub;
@@ -33,6 +36,7 @@ ros::Publisher imu_pub;
 ros::Publisher obstacle_distance_pub;
 ros::Publisher velocity_pub;
 ros::Publisher ultrasonic_pub;
+ros::Publisher image_pub;
 
 ros::Subscriber set_camera_id_sub;
 ros::Subscriber set_exposure_param_sub;
@@ -43,6 +47,8 @@ using namespace cv;
 #define WIDTH 320
 #define HEIGHT 240
 #define IMAGE_SIZE (HEIGHT * WIDTH)
+
+//#define DEBUG_MSG
 
 // for setting exposure
 char            key       = 0;
@@ -56,6 +62,26 @@ Mat             g_depth(HEIGHT,WIDTH,CV_16SC1);
 Mat             depth8(HEIGHT, WIDTH, CV_8UC1);
 Mat             g_disparity(HEIGHT,WIDTH,CV_16SC1);
 Mat             disparity8(HEIGHT, WIDTH, CV_8UC1);
+
+// Avoid looking from the same camera twice in a row if possible (it isnt)
+e_vbus_index camera_pair_sequence[][2] = {
+    {e_vbus2, e_vbus3},
+    {e_vbus4, e_vbus5},
+    {e_vbus2, e_vbus4},
+    {e_vbus3, e_vbus5},
+    {e_vbus2, e_vbus5},
+    {e_vbus3, e_vbus4},
+};
+// e_vbus_index camera_pair_sequence[][2] = {
+//     {e_vbus4, e_vbus3},
+// };
+
+int sequence_index = 0;
+int sequence_count = (sizeof(camera_pair_sequence) / sizeof(camera_pair_sequence[0]));
+
+int frame_count = 0;
+int frame_delay = 2;
+int frame_cycle = 3;
 
 std::ostream& operator<<(std::ostream& out, const e_sdk_err_code value){
     const char* s = 0;
@@ -81,6 +107,53 @@ std::ostream& operator<<(std::ostream& out, const e_sdk_err_code value){
 
     return out << s;
 }
+
+dji_guidance::guidance_image create_image_message(image_data* data, e_vbus_index idx) {
+    dji_guidance::guidance_image img;
+    if (data->m_depth_image[idx]) {
+        img.vbus_index = idx;
+
+        memcpy(g_depth.data, data->m_depth_image[idx], IMAGE_SIZE * 2);
+        cv_bridge::CvImage depth_16;
+        g_depth.copyTo(depth_16.image);
+        depth_16.header.frame_id = "guidance";
+        depth_16.header.stamp = ros::Time::now();
+        depth_16.encoding = sensor_msgs::image_encodings::MONO16;
+
+        img.image = *(depth_16.toImageMsg());
+
+        return img;
+    } else {
+        std::cout << "Attempted to build an image message for an unsubscribed image channel " << idx << std::endl;
+        return img;
+    }
+}
+
+// make sure that the data we are looking for in the current sequence is in the image_data
+bool check_sequence_data(image_data* data) {
+    return data->m_depth_image[camera_pair_sequence[sequence_index][0]]
+        && data->m_depth_image[camera_pair_sequence[sequence_index][1]];
+}
+
+void select_camera_pair(int index) {
+    int err_code = select_depth_image(camera_pair_sequence[index][0]);
+    if (err_code) {
+        std::cout << "Could not select camera " << camera_pair_sequence[index][0] << std::endl;
+    }
+    err_code = select_depth_image(camera_pair_sequence[index][1]);
+    if (err_code) {
+        std::cout << "Could not select camera " << camera_pair_sequence[index][1] << std::endl;
+    }
+}
+
+bool check_sequence_validity(image_data* data, e_vbus_index index) {
+    return data->m_depth_image[index] && !(camera_pair_sequence[sequence_index][0] == index || camera_pair_sequence[sequence_index][1] == index);
+}
+
+
+using namespace std::chrono;
+milliseconds start = duration_cast< milliseconds >(system_clock::now().time_since_epoch());
+int frames = 0;
 
 int my_callback(int data_type, int data_len, char *content)
 {
@@ -113,18 +186,23 @@ int my_callback(int data_type, int data_len, char *content)
             right_8.encoding     = sensor_msgs::image_encodings::MONO8;
             right_image_pub.publish(right_8.toImageMsg());
         }
-        if ( data->m_depth_image[CAMERA_ID] ){
-            memcpy(g_depth.data, data->m_depth_image[CAMERA_ID], IMAGE_SIZE * 2);
-            //g_depth.convertTo(depth8, CV_8UC1);
-            //imshow("depth", depth8);
-            //publish depth image
-            cv_bridge::CvImage depth_16;
-            g_depth.copyTo(depth_16.image);
-            depth_16.header.frame_id  = "guidance";
-            depth_16.header.stamp     = ros::Time::now();
-            depth_16.encoding     = sensor_msgs::image_encodings::MONO16;
-            depth_image_pub.publish(depth_16.toImageMsg());
-        }
+
+        // disabling the old depth image because its going to be too hard to sync CAMERA_ID with the
+        // new sequence system. I am leaving this here until we do the node rewrite so that I can 
+        // reference it during the rewrite if we want to change it to publish single depth images
+        // if ( data->m_depth_image[CAMERA_ID] ){
+        //     memcpy(g_depth.data, data->m_depth_image[CAMERA_ID], IMAGE_SIZE * 2);
+        //     //g_depth.convertTo(depth8, CV_8UC1);
+        //     //imshow("depth", depth8);
+        //     //publish depth image
+        //     cv_bridge::CvImage depth_16;
+        //     g_depth.copyTo(depth_16.image);
+        //     depth_16.header.frame_id  = "guidance";
+        //     depth_16.header.stamp     = ros::Time::now();
+        //     depth_16.encoding     = sensor_msgs::image_encodings::MONO16;
+        //     depth_image_pub.publish(depth_16.toImageMsg());
+        // }
+
         if ( data->m_disparity_image[CAMERA_ID] ){
             memcpy(g_disparity.data, data->m_disparity_image[CAMERA_ID], IMAGE_SIZE * 2);
             //g_disparity.convertTo(disparity8, CV_8UC1);
@@ -137,14 +215,70 @@ int my_callback(int data_type, int data_len, char *content)
             disparity_16.encoding         = sensor_msgs::image_encodings::MONO16;
             disparity_image_pub.publish(disparity_16.toImageMsg());
         }
+
+        // Publish a multi_image of depth data        
+        if (frame_count >= frame_delay) {
+            if (false) {
+                std::cout << "Image data pointers: " 
+                          << (data->m_depth_image[0] != 0)
+                          << ", " << (data->m_depth_image[1] != 0)
+                          << ", " << (data->m_depth_image[2] != 0)
+                          << ", " << (data->m_depth_image[3] != 0)
+                          << ", " << (data->m_depth_image[4] != 0)
+                          << ". Camera indices: " 
+                          << camera_pair_sequence[sequence_index][0] 
+                          << ", " << camera_pair_sequence[sequence_index][1] 
+                          << std::endl;
+            }
+
+            if (check_sequence_data(data)) {
+                dji_guidance::multi_image msg;
+
+                msg.images.push_back(create_image_message(data, camera_pair_sequence[sequence_index][0]));
+                msg.images.push_back(create_image_message(data, camera_pair_sequence[sequence_index][1]));
+
+                //std::cout << "publishing images for cameras: " << camera_pair_sequence[sequence_index][0] << ", " << camera_pair_sequence[sequence_index][1] << std::endl;
+                image_pub.publish(msg);
+
+                frames++;
+                milliseconds now = duration_cast<milliseconds>(system_clock::now().time_since_epoch());
+                if ((now - start).count() > 1000) {
+                    std::cout << "SDK pull rate: " << ((float)frames / (now - start).count()) * 1000.f << std::endl;
+                    start = now;
+                    frames = 0;
+                }
+            }
+        }
+
+        if (frame_count >= frame_cycle) {
+            // select next camera pairs in the sequence
+            sequence_index = (sequence_index + 1) % sequence_count;
+
+            //std::cout << "selecting these new indices: " << camera_pair_sequence[sequence_index][0] << ", " << camera_pair_sequence[sequence_index][1] << std::endl;
+            int err_code = stop_transfer();
+            if (err_code) {
+                std::cout << "Error when stopping transfer while trying to switch cameras " << err_code << std::endl;
+            }
+            reset_config();
+            select_camera_pair(sequence_index);
+            err_code = start_transfer();
+            if (err_code) {
+                std::cout << "Error when restarting transfer while trying to switch cameras " << err_code << std::endl;
+            }
+            frame_count = 0;
+        } else {
+            frame_count++;
+        }
     }
 
     /* imu */
     if ( e_imu == data_type && NULL != content )
     {
         imu *imu_data = (imu*)content;
+#if DEBUG_MSG
         printf( "frame index: %d, stamp: %d\n", imu_data->frame_index, imu_data->time_stamp );
         printf( "imu: [%f %f %f %f %f %f %f]\n", imu_data->acc_x, imu_data->acc_y, imu_data->acc_z, imu_data->q[0], imu_data->q[1], imu_data->q[2], imu_data->q[3] );
+#endif
     
         // publish imu data
         geometry_msgs::TransformStamped g_imu;
@@ -163,9 +297,11 @@ int my_callback(int data_type, int data_len, char *content)
     if ( e_velocity == data_type && NULL != content )
     {
         velocity *vo = (velocity*)content;
+#if DEBUG_MSG
         printf( "frame index: %d, stamp: %d\n", vo->frame_index, vo->time_stamp );
         printf( "vx:%f vy:%f vz:%f\n", 0.001f * vo->vx, 0.001f * vo->vy, 0.001f * vo->vz );
-    
+#endif
+
         // publish velocity
         geometry_msgs::Vector3Stamped g_vo;
         g_vo.header.frame_id = "guidance";
@@ -180,6 +316,7 @@ int my_callback(int data_type, int data_len, char *content)
     if ( e_obstacle_distance == data_type && NULL != content )
     {
         obstacle_distance *oa = (obstacle_distance*)content;
+#if DEBUG_MSG
         printf( "frame index: %d, stamp: %d\n", oa->frame_index, oa->time_stamp );
         printf( "obstacle distance:" );
         for ( int i = 0; i < CAMERA_PAIR_NUM; ++i )
@@ -187,6 +324,7 @@ int my_callback(int data_type, int data_len, char *content)
             printf( " %f ", 0.01f * oa->distance[i] );
         }
         printf( "\n" );
+#endif
 
         // publish obstacle distance
         sensor_msgs::LaserScan g_oa;
@@ -202,11 +340,13 @@ int my_callback(int data_type, int data_len, char *content)
     if ( e_ultrasonic == data_type && NULL != content )
     {
         ultrasonic_data *ultrasonic = (ultrasonic_data*)content;
+#if DEBUG_MSG
         printf( "frame index: %d, stamp: %d\n", ultrasonic->frame_index, ultrasonic->time_stamp );
         for ( int d = 0; d < CAMERA_PAIR_NUM; ++d )
         {
             printf( "ultrasonic distance: %f, reliability: %d\n", ultrasonic->ultrasonic[d] * 0.001f, (int)ultrasonic->reliability[d] );
         }
+#endif
     
         // publish ultrasonic data
         sensor_msgs::LaserScan g_ul;
@@ -238,7 +378,6 @@ void set_camera_id_callback(const dji_guidance::set_camera_idConstPtr& msg) {
         CAMERA_ID = idx;
         select_greyscale_image(CAMERA_ID, true);
         select_greyscale_image(CAMERA_ID, false);
-        select_depth_image(CAMERA_ID);
         select_disparity_image(CAMERA_ID);
 
         err_code = start_transfer();
@@ -269,6 +408,7 @@ int main(int argc, char** argv)
     velocity_pub            = my_node.advertise<geometry_msgs::Vector3Stamped>("/guidance/velocity",1);
     obstacle_distance_pub   = my_node.advertise<sensor_msgs::LaserScan>("/guidance/obstacle_distance",1);
     ultrasonic_pub          = my_node.advertise<sensor_msgs::LaserScan>("/guidance/ultrasonic",1);
+    image_pub               = my_node.advertise<dji_guidance::multi_image>("/guidance/depth_images",1);
 
     set_camera_id_sub       = my_node.subscribe(guidance::SET_CAMERA_ID, 10, set_camera_id_callback);
     set_exposure_param_sub  = my_node.subscribe(guidance::SET_EXPOSURE_PARAM, 10, set_exposure_param_callback);
@@ -299,14 +439,18 @@ int main(int argc, char** argv)
     }
     
     /* select data */
-    err_code = select_greyscale_image(CAMERA_ID, true);
+    //err_code = select_greyscale_image(CAMERA_ID, true);
     RETURN_IF_ERR(err_code);
-    err_code = select_greyscale_image(CAMERA_ID, false);
+    //err_code = select_greyscale_image(CAMERA_ID, false);
     RETURN_IF_ERR(err_code);
-    err_code = select_depth_image(CAMERA_ID);
+    // err_code = select_depth_image(CAMERA_ID);
+    // RETURN_IF_ERR(err_code);
+    //err_code = select_disparity_image(CAMERA_ID);
     RETURN_IF_ERR(err_code);
-    err_code = select_disparity_image(CAMERA_ID);
-    RETURN_IF_ERR(err_code);
+
+    set_image_frequecy(e_frequecy_20);
+
+    select_camera_pair(sequence_index);
 
     select_imu();
     select_ultrasonic();

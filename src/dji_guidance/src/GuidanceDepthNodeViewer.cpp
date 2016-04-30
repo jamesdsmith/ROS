@@ -53,10 +53,13 @@ void multi_image_callback(const dji_guidance::multi_image::ConstPtr& msg) {
           return;
         }
 
-        cv::Mat depth8(WIDTH, HEIGHT, CV_8UC1);
-        cv_ptr->image.convertTo(depth8, CV_8UC1);
-        cv::imshow("depth_image " + std::to_string(img.vbus_index), depth8);
-        waitKey(1);
+        if (cv_ptr) {
+            cv::Mat depth8(WIDTH, HEIGHT, CV_8UC1);
+            cv_ptr->image.convertTo(depth8, CV_8UC1);
+            //cv::imshow("depth_image " + std::to_string(img.vbus_index), cv_ptr->image);
+            cv::imshow("depth_image " + std::to_string(img.vbus_index), depth8);
+            waitKey(1);
+        }
     }
 }
 
@@ -65,7 +68,7 @@ int main(int argc, char** argv)
     ros::init(argc, argv, "GuidanceDepthNodeViewer");
     ros::NodeHandle my_node;
 
-    multi_image_sub = my_node.subscribe("/guidance/depth/images",  10, multi_image_callback);
+    multi_image_sub = my_node.subscribe("/guidance/depth_images",  1, multi_image_callback);
     
     int err_code = 0;
 

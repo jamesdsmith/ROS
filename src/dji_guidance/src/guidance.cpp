@@ -31,61 +31,55 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * Please contact the author(s) of this library if you have any questions.
- * Author: David Fridovich-Keil   ( dfk@eecs.berkeley.edu )
+ * Author: James Smith   ( james.smith@berkeley.edu )
  */
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-// This defines the DepthCloudProjector class.
+// Definitions for the Guidance class.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#ifndef DEPTH_CLOUD_PROJECTOR_H
-#define DEPTH_CLOUD_PROJECTOR_H
+#include <guidance/guidance.h>
 
-#include <memory>
-#include <ros/ros.h>
-#include <utils/image/depth_map.h>
-#include <pcl/point_types.h>
-#include <pcl_ros/point_cloud.h>
-#include <sensor_msgs/Image.h>
-#include <Eigen/Dense>
-#include <cmath>
-#include <dji_guidance/multi_image.h>
-#include <utils/math/transform_3d.h>
-#include <point_cloud_filter/point_cloud_filter.h>
+// Constructor/destructor.
+Guidance::Guidance() : initialized_(false) {}
+Guidance::~Guidance() {}
 
-typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
-//using namespace math;
+// Initialize.
+bool Guidance::Initialize(const ros::NodeHandle& n) {
+  name_ = ros::names::append(n.getNamespace(), "guidance");
 
-class DepthCloudProjector {
- public:
-  explicit DepthCloudProjector();
-  ~DepthCloudProjector();
+  if (!LoadParameters(n)) {
+    ROS_ERROR("%s: Failed to load parameters.", name_.c_str());
+    return false;
+  }
 
-  bool Initialize(const ros::NodeHandle& n);
+  if (!RegisterCallbacks(n)) {
+    ROS_ERROR("%s: Failed to register callbacks.", name_.c_str());
+    return false;
+  }
 
- private:
-  bool LoadParameters(const ros::NodeHandle& n);
-  bool RegisterCallbacks(const ros::NodeHandle& n);
+  initialized_ = true;
+  return true;
+}
 
-  // Callbacks.
-  void DepthMapCallback(const sensor_msgs::Image& map);
-  void MultiImageCallback(const dji_guidance::multi_image::ConstPtr& msg);
+// Load parameters.
+bool Guidance::LoadParameters(const ros::NodeHandle& n) {
+  return true;
+}
 
-  math::Transform3D GetRotationFor(int index);
-  math::Transform3D GetOffsetFor(int index);
+// Register callbacks.
+bool Guidance::RegisterCallbacks(const ros::NodeHandle& n) {
+  ros::NodeHandle node(n);
 
-  // Publishers/subscribers.
-  ros::Publisher cloud_pub_;
-  ros::Subscriber depth_sub_;
-  ros::Subscriber multi_img_sub_;
+  // Subscriber.
+  // depth_sub_ =
+  //   node.subscribe("/guidance/depth_image", 10,
+  //                  &DepthCloudProjector::DepthMapCallback, this);
 
-  // Time stamp.
-  ros::Time stamp_;
+  // Publishers.
+  //cloud_pub_ = node.advertise<PointCloud>("/mapper/cloud", 10, false);
 
-  bool initialized_;
-  std::string name_;
-};
-
-#endif
+  return true;
+}

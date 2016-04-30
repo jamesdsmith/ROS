@@ -104,7 +104,7 @@ int my_callback(int data_type, int data_len, char *content)
         msg.images.push_back(create_image_message(data, e_vbus2));
         msg.images.push_back(create_image_message(data, e_vbus3));
         msg.images.push_back(create_image_message(data, e_vbus4));
-        //msg.images.push_back(create_image_message(data, e_vbus5));
+        msg.images.push_back(create_image_message(data, e_vbus5));
 
         image_pub.publish(msg);
         std::cout << "published " << msg.images.size() << " images" << std::endl;
@@ -159,7 +159,7 @@ int main(int argc, char** argv)
     ros::init(argc, argv, "GuidanceDepthNode");
     ros::NodeHandle my_node;
     
-    image_pub    = my_node.advertise<dji_guidance::multi_image>("/guidance/depth/images",1);
+    image_pub    = my_node.advertise<dji_guidance::multi_image>("/guidance/depth_images",1);
     imu_pub      = my_node.advertise<geometry_msgs::TransformStamped>("/guidance/depth/imu",1);
     velocity_pub = my_node.advertise<geometry_msgs::Vector3Stamped>("/guidance/depth/velocity",1);
 
@@ -195,10 +195,12 @@ int main(int argc, char** argv)
     RETURN_IF_ERR(err_code);
     err_code = select_depth_image(e_vbus4);
     RETURN_IF_ERR(err_code);
-    //err_code = select_depth_image(e_vbus5);
-    //RETURN_IF_ERR(err_code);
+    err_code = select_depth_image(e_vbus5);
+    RETURN_IF_ERR(err_code);
     select_imu();
     select_velocity();
+
+    set_image_frequecy(e_frequecy_5);
 
     /* start data transfer */
     err_code = set_sdk_event_handler(my_callback);

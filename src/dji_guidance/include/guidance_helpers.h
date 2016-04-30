@@ -12,7 +12,7 @@
 #include "dji_guidance/set_exposure_param.h"
 
 e_vbus_index get_default_camera_id() {
-	return e_vbus1;
+	return e_vbus2;
 }
 
 exposure_param get_default_exposure_param(int cameraID) {

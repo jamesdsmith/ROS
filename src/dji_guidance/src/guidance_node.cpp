@@ -31,61 +31,31 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * Please contact the author(s) of this library if you have any questions.
- * Author: David Fridovich-Keil   ( dfk@eecs.berkeley.edu )
+ * Author: James Smith   ( james.smith@berkeley.edu )
  */
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-// This defines the DepthCloudProjector class.
+// This defines the guidance node.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#ifndef DEPTH_CLOUD_PROJECTOR_H
-#define DEPTH_CLOUD_PROJECTOR_H
-
-#include <memory>
 #include <ros/ros.h>
-#include <utils/image/depth_map.h>
-#include <pcl/point_types.h>
-#include <pcl_ros/point_cloud.h>
-#include <sensor_msgs/Image.h>
-#include <Eigen/Dense>
-#include <cmath>
-#include <dji_guidance/multi_image.h>
-#include <utils/math/transform_3d.h>
-#include <point_cloud_filter/point_cloud_filter.h>
+#include <guidance/guidance.h>
 
-typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
-//using namespace math;
+int main(int argc, char** argv) {
+  // Generate a new node.
+  ros::init(argc, argv, "guidance");
+  ros::NodeHandle n("~");
 
-class DepthCloudProjector {
- public:
-  explicit DepthCloudProjector();
-  ~DepthCloudProjector();
+  // Initialize a new projector.
+  Guidance guidance;
+  if (!guidance.Initialize(n)) {
+    ROS_ERROR("%s: Failed to initialize Guidance.",
+              ros::this_node::getName().c_str());
+    return EXIT_FAILURE;
+  }
 
-  bool Initialize(const ros::NodeHandle& n);
-
- private:
-  bool LoadParameters(const ros::NodeHandle& n);
-  bool RegisterCallbacks(const ros::NodeHandle& n);
-
-  // Callbacks.
-  void DepthMapCallback(const sensor_msgs::Image& map);
-  void MultiImageCallback(const dji_guidance::multi_image::ConstPtr& msg);
-
-  math::Transform3D GetRotationFor(int index);
-  math::Transform3D GetOffsetFor(int index);
-
-  // Publishers/subscribers.
-  ros::Publisher cloud_pub_;
-  ros::Subscriber depth_sub_;
-  ros::Subscriber multi_img_sub_;
-
-  // Time stamp.
-  ros::Time stamp_;
-
-  bool initialized_;
-  std::string name_;
-};
-
-#endif
+  ros::spin();
+  return EXIT_SUCCESS;
+}

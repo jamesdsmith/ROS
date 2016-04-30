@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * Please contact the author(s) of this library if you have any questions.
- * Author: David Fridovich-Keil   ( dfk@eecs.berkeley.edu )
+ * Author: James Smith   ( james.smith@berkeley.edu )
  */
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -40,28 +40,17 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#ifndef DEPTH_CLOUD_PROJECTOR_H
-#define DEPTH_CLOUD_PROJECTOR_H
+#ifndef GUIDANCE_H
+#define GUIDANCE_H
 
 #include <memory>
 #include <ros/ros.h>
-#include <utils/image/depth_map.h>
-#include <pcl/point_types.h>
-#include <pcl_ros/point_cloud.h>
-#include <sensor_msgs/Image.h>
 #include <Eigen/Dense>
-#include <cmath>
-#include <dji_guidance/multi_image.h>
-#include <utils/math/transform_3d.h>
-#include <point_cloud_filter/point_cloud_filter.h>
 
-typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
-//using namespace math;
-
-class DepthCloudProjector {
+class Guidance {
  public:
-  explicit DepthCloudProjector();
-  ~DepthCloudProjector();
+  explicit Guidance();
+  ~Guidance();
 
   bool Initialize(const ros::NodeHandle& n);
 
@@ -70,16 +59,11 @@ class DepthCloudProjector {
   bool RegisterCallbacks(const ros::NodeHandle& n);
 
   // Callbacks.
-  void DepthMapCallback(const sensor_msgs::Image& map);
-  void MultiImageCallback(const dji_guidance::multi_image::ConstPtr& msg);
-
-  math::Transform3D GetRotationFor(int index);
-  math::Transform3D GetOffsetFor(int index);
+  //void DepthMapCallback(const sensor_msgs::Image& map);
 
   // Publishers/subscribers.
-  ros::Publisher cloud_pub_;
-  ros::Subscriber depth_sub_;
-  ros::Subscriber multi_img_sub_;
+  //ros::Publisher cloud_pub_;
+  //ros::Subscriber depth_sub_;
 
   // Time stamp.
   ros::Time stamp_;
