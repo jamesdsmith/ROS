@@ -46,6 +46,22 @@
 #include <memory>
 #include <ros/ros.h>
 #include <Eigen/Dense>
+#include <dji_guidance/DJI_guidance.h>
+
+/**
+ * Allows us to configure camera directions to specific indices
+ * This essentially defines the configuration of the physical cameras and allows
+ * us to write code that is index agnostic (ie, if we swap two camera indices, we can
+ * just change the indices here)
+ */
+enum camera_direction
+{
+  cam_front = e_vbus1,
+  cam_right = e_vbus2,
+  cam_back = e_vbus3,
+  cam_left = e_vbus4,
+  cam_down = e_vbus5
+};
 
 class GuidanceDriver {
  public:
@@ -58,18 +74,62 @@ class GuidanceDriver {
   bool LoadParameters(const ros::NodeHandle& n);
   bool RegisterCallbacks(const ros::NodeHandle& n);
 
+  // SDK Wrappers
+  bool InitGuidanceSDK();
+  bool InitGuidanceData();
+
+  // Data selectors
+  bool SelectCameraPair(camera_direction dir);
+  bool SelectIMU();
+  bool SelectUltrasonic();
+  bool SelectVelocity();
+  bool SelectObstacleDistance();
+
+  // SDK data polling
+  bool UpdateOnlineStatus();
+  bool UpdateStereoCalibration();
+
+  void PrintOnlineStatus();
+  void PrintStereoCalibration();
+
+  // SDK Callback
+  int OnSDKEvent(int data_type, int data_len, char* content);
+  bool ProcessImageData(char* content);
+  bool ProcessIMUData(char* content);
+  bool ProcessUltrasonicData(char* content);
+  bool ProcessVelocityData(char* content);
+  bool ProcessObstacleDistanceData(char* content);
+
+  bool ProcessGreyscaleLeftImage(Cv::Math img);
+  bool ProcessGreyscaleRightImage(Cv::Math img);
+  bool ProcessDepthImage(Cv::Mat img);
+  bool ProcessDisparityImage(Cv::Mat img);
+
   // Callbacks.
   //void DepthMapCallback(const sensor_msgs::Image& map);
 
   // Publishers/subscribers.
   //ros::Publisher cloud_pub_;
   //ros::Subscriber depth_sub_;
+  ros::Publisher depth_image_pub_;
+  ros::Publisher disparity_image_pub_;
+  ros::Publisher left_image_pub_;
+  ros::Publisher right_image_pub_;
+  ros::Publisher imu_pub_;
+  ros::Publisher obstacle_distance_pub_;
+  ros::Publisher velocity_pub_;
+  ros::Publisher ultrasonic_pub_;
+  ros::Publisher multi_image_pub_;
 
   // Time stamp.
   ros::Time stamp_;
 
   bool initialized_;
   std::string name_;
+
+  // Store data from the sdk
+  stereo_cali stereo_calibration_[CAMERA_PAIR_NUM];
+  int online_status_[CAMERA_PAIR_NUM]
 };
 
 #endif
