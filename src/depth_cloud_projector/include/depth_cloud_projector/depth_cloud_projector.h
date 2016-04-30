@@ -53,6 +53,7 @@
 #include <cmath>
 #include <dji_guidance/multi_image.h>
 #include <utils/math/transform_3d.h>
+#include <point_cloud_filter/point_cloud_filter.h>
 
 typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
 //using namespace math;

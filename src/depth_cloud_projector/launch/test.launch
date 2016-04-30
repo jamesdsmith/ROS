@@ -4,6 +4,9 @@
         pkg="depth_cloud_projector"
         type="depth_cloud_projector_node"
         output="screen">
+        
+        <!-- Filter parameters -->
+        <rosparam file="$(find point_cloud_filter)/config/filter.yaml"/>
   </node>
 
 </launch>

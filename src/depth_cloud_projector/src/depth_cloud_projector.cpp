@@ -50,12 +50,12 @@
 #include <opencv/cv.h>
 #include <pcl/point_types.h>
 #include <pcl_ros/point_cloud.h>
+#include <pcl/filters/statistical_outlier_removal.h>
 #include <pcl/common/transforms.h>
 #include <utils/math/transform_3d.h>
 #include <utils/math/rotation.h>
 #include <math.h>
-
-#define DEG_TO_RAD(x) x * M_PI / 180.0f
+#include <chrono>
 
 // Constructor/destructor.
 DepthCloudProjector::DepthCloudProjector() : initialized_(false) {}
@@ -93,7 +93,7 @@ bool DepthCloudProjector::RegisterCallbacks(const ros::NodeHandle& n) {
     node.subscribe("/guidance/depth_image", 10,
                    &DepthCloudProjector::DepthMapCallback, this);
   multi_img_sub_ =
-    node.subscribe("/guidance/depth_images", 10,
+    node.subscribe("/guidance/depth_images", 1,
                    &DepthCloudProjector::MultiImageCallback, this);
 
   // Publishers.
@@ -127,6 +127,10 @@ void DepthCloudProjector::DepthMapCallback(const sensor_msgs::Image& msg) {
   cloud_pub_.publish(cl.makeShared());
 }
 
+using namespace std::chrono;
+milliseconds start = duration_cast< milliseconds >(system_clock::now().time_since_epoch());
+int frames = 0;
+
 void DepthCloudProjector::MultiImageCallback(const dji_guidance::multi_image::ConstPtr& msg) {
   PointCloud cl;
   for (auto const& img : msg->images) {
@@ -152,6 +156,16 @@ void DepthCloudProjector::MultiImageCallback(const dji_guidance::multi_image::Co
     PointCloud transformed;
     pcl::transformPointCloud(projection, transformed, tform.GetTransform());
 
+    // Filter the point cloud...
+    // pcl::PointCloud<pcl::PointXYZ>::Ptr transformedPtr(&transformed);
+    // PointCloud filtered;
+    // pcl::StatisticalOutlierRemoval<pcl::PointXYZ> sor;
+    // sor.setInputCloud(transformedPtr);
+    // sor.setMeanK(50);
+    // sor.setStddevMulThresh(1.0);
+    // sor.filter(filtered);
+    // cl = cl + filtered;
+
     cl = cl + transformed;
     cl.header.frame_id = "guidance";
     cl.header.stamp = cv_ptr->header.stamp.toNSec() / 1000;
@@ -159,6 +173,14 @@ void DepthCloudProjector::MultiImageCallback(const dji_guidance::multi_image::Co
   }
   //std::cout << "Projected " << cl.size() << " points" << std::endl;
   cloud_pub_.publish(cl.makeShared());
+
+  frames++;
+  milliseconds now = duration_cast<milliseconds>(system_clock::now().time_since_epoch());
+  if ((now - start).count() > 1000) {
+      std::cout << "SDK pull rate: " << ((float)frames / (now - start).count()) * 1000.f << std::endl;
+      start = now;
+      frames = 0;
+  }
 }
 
 /*

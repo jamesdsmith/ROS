@@ -26,6 +26,8 @@
 #include <geometry_msgs/Vector3Stamped.h> //velocity
 #include <sensor_msgs/LaserScan.h> //obstacle distance & ultrasonic
 #include <time.h>
+#include <chrono>
+
 ros::Publisher depth_image_pub;
 ros::Publisher disparity_image_pub;
 ros::Publisher left_image_pub;
@@ -148,6 +150,11 @@ bool check_sequence_validity(image_data* data, e_vbus_index index) {
     return data->m_depth_image[index] && !(camera_pair_sequence[sequence_index][0] == index || camera_pair_sequence[sequence_index][1] == index);
 }
 
+
+using namespace std::chrono;
+milliseconds start = duration_cast< milliseconds >(system_clock::now().time_since_epoch());
+int frames = 0;
+
 int my_callback(int data_type, int data_len, char *content)
 {
     g_lock.enter();
@@ -232,6 +239,14 @@ int my_callback(int data_type, int data_len, char *content)
 
                 //std::cout << "publishing images for cameras: " << camera_pair_sequence[sequence_index][0] << ", " << camera_pair_sequence[sequence_index][1] << std::endl;
                 image_pub.publish(msg);
+
+                frames++;
+                milliseconds now = duration_cast<milliseconds>(system_clock::now().time_since_epoch());
+                if ((now - start).count() > 1000) {
+                    std::cout << "SDK pull rate: " << ((float)frames / (now - start).count()) * 1000.f << std::endl;
+                    start = now;
+                    frames = 0;
+                }
             }
         }
 
@@ -424,14 +439,16 @@ int main(int argc, char** argv)
     }
     
     /* select data */
-    err_code = select_greyscale_image(CAMERA_ID, true);
+    //err_code = select_greyscale_image(CAMERA_ID, true);
     RETURN_IF_ERR(err_code);
-    err_code = select_greyscale_image(CAMERA_ID, false);
+    //err_code = select_greyscale_image(CAMERA_ID, false);
     RETURN_IF_ERR(err_code);
     // err_code = select_depth_image(CAMERA_ID);
     // RETURN_IF_ERR(err_code);
-    err_code = select_disparity_image(CAMERA_ID);
+    //err_code = select_disparity_image(CAMERA_ID);
     RETURN_IF_ERR(err_code);
+
+    set_image_frequecy(e_frequecy_20);
 
     select_camera_pair(sequence_index);
 
