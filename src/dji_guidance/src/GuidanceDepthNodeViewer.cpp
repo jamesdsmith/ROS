@@ -26,6 +26,7 @@
 #include <geometry_msgs/Vector3Stamped.h> //velocity
 #include <sensor_msgs/LaserScan.h> //obstacle distance && ultrasonic
 #include "dji_guidance/multi_image.h"
+#include "dji_guidance/stereo_pair.h"
 
 using namespace cv;
 
@@ -36,6 +37,7 @@ DJI_lock        g_lock;
 DJI_event       g_event;
 
 ros::Subscriber multi_image_sub;
+ros::Subscriber stereo_pair_sub;
 
 using namespace cv;
 #define WIDTH 320
@@ -63,12 +65,39 @@ void multi_image_callback(const dji_guidance::multi_image::ConstPtr& msg) {
     }
 }
 
+void stereo_pair_callback(const dji_guidance::stereo_pair::ConstPtr& msg) {
+    cv_bridge::CvImagePtr left_ptr;
+    try {
+        left_ptr = cv_bridge::toCvCopy(msg->left, sensor_msgs::image_encodings::MONO8);
+    }
+    catch (cv_bridge::Exception& e) {
+        ROS_ERROR("cv_bridge exception: %s", e.what());
+        return;
+    }
+
+    cv::imshow("left_image " + std::to_string(msg->vbus_index), left_ptr->image);
+    cv::waitKey(1);
+
+    cv_bridge::CvImagePtr right_ptr;
+    try {
+        right_ptr = cv_bridge::toCvCopy(msg->right, sensor_msgs::image_encodings::MONO8);
+    }
+    catch (cv_bridge::Exception& e) {
+        ROS_ERROR("cv_bridge exception: %s", e.what());
+        return;
+    }
+
+    cv::imshow("right_image " + std::to_string(msg->vbus_index), right_ptr->image);
+    cv::waitKey(1);
+}
+
 int main(int argc, char** argv)
 {
     ros::init(argc, argv, "GuidanceDepthNodeViewer");
     ros::NodeHandle my_node;
 
-    multi_image_sub = my_node.subscribe("/guidance/depth_images",  1, multi_image_callback);
+    //multi_image_sub = my_node.subscribe("/guidance/depth_images",  1, multi_image_callback);
+    stereo_pair_sub = my_node.subscribe("/guidance/stereo_pair",  5, stereo_pair_callback);
     
     int err_code = 0;
 

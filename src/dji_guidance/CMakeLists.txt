@@ -70,11 +70,21 @@ include_directories(${PROJECT_SOURCE_DIR}/include)
 
 add_library(${PROJECT_NAME}
   ${PROJECT_SOURCE_DIR}/src/DJI_utility.cpp
+)
+
+add_library(driver
   ${PROJECT_SOURCE_DIR}/src/guidance_driver.cpp
+)
+
+target_link_libraries(driver
+  DJI_guidance
+  usb-1.0
+  ${OpenCV_LIBRARIES}
 )
 
 add_executable(guidance_driver_node ${PROJECT_SOURCE_DIR}/src/guidance_driver_node.cpp)
 target_link_libraries(guidance_driver_node
+  driver
   ${PROJECT_NAME}
   DJI_guidance
   usb-1.0
@@ -89,7 +99,13 @@ add_executable(guidanceNodeTest ${PROJECT_SOURCE_DIR}/src/GuidanceNodeTest.cpp $
 add_executable(guidanceDepthNodeViewer ${PROJECT_SOURCE_DIR}/src/GuidanceDepthNodeViewer.cpp ${PROJECT_SOURCE_DIR}/src/DJI_utility.cpp)
 add_executable(guidanceNodeCalibration ${PROJECT_SOURCE_DIR}/src/GuidanceNodeCalibration.cpp ${PROJECT_SOURCE_DIR}/src/DJI_utility.cpp)
 
-target_link_libraries(guidanceNode DJI_guidance usb-1.0 ${catkin_LIBRARIES} ${OpenCV_LIBS})
+target_link_libraries(guidanceNode
+  DJI_guidance
+  usb-1.0
+  ${catkin_LIBRARIES}
+  ${OpenCV_LIBS}
+)
+
 target_link_libraries(guidanceDepthNode DJI_guidance usb-1.0 ${catkin_LIBRARIES} ${OpenCV_LIBS})
 target_link_libraries(guidanceNodeTest DJI_guidance ${catkin_LIBRARIES} ${OpenCV_LIBS})
 target_link_libraries(guidanceDepthNodeViewer DJI_guidance ${catkin_LIBRARIES} ${OpenCV_LIBS})

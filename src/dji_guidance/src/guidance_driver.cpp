@@ -43,6 +43,7 @@
 #include <guidance_driver/guidance_driver.h>
 #include <dji/DJI_guidance.h>
 #include <dji/DJI_utility.h>
+#include "dji_guidance/stereo_pair.h"
 
 // @TODO high priority, figure something out for this
 #define WIDTH 320
@@ -105,6 +106,7 @@ bool GuidanceDriver::RegisterCallbacks(const ros::NodeHandle& n) {
   velocity_pub_          = node.advertise<geometry_msgs::Vector3Stamped>("/guidance/velocity",1);
   obstacle_distance_pub_ = node.advertise<sensor_msgs::LaserScan>("/guidance/obstacle_distance",1);
   ultrasonic_pub_        = node.advertise<sensor_msgs::LaserScan>("/guidance/ultrasonic",1);
+  stereo_pair_pub_       = node.advertise<dji_guidance::stereo_pair>("/guidance/stereo_pair", 5);
 
   return true;
 }
@@ -112,7 +114,7 @@ bool GuidanceDriver::RegisterCallbacks(const ros::NodeHandle& n) {
 bool GuidanceDriver::InitGuidanceSDK() {
   reset_config();
 
-  if (init_transfer() != 0) {
+  if (init_transfer()) {
     ROS_ERROR("%s: There was an error initializing data transfer. Aborting startup.", name_.c_str());
     return false;
   }
@@ -141,7 +143,7 @@ bool GuidanceDriver::InitGuidanceSDK() {
   }
 
   if (!InitGuidanceData()) {
-    ROS_ERROR("%s: There was an error initializing data transfer. Aborting startup.", name_.c_str());
+    ROS_ERROR("%s: There was an error when selecting data from the SDK. Aborting startup.", name_.c_str());
     return false;
   }
 
@@ -173,14 +175,14 @@ bool GuidanceDriver::InitGuidanceSDK() {
 bool GuidanceDriver::InitGuidanceData() {
   // @TODO Load these from parameters!!
   return
-    SelectCameraPair(cam_front) && 
+    SelectCameraPair(cam_back) && 
     SelectCameraPair(cam_left) &&
     SelectCameraPair(cam_right) &&
     SelectCameraPair(cam_down) &&
-    // SelectIMU() &&
-    // SelectUltrasonic() &&
-    // SelectObstacleDistance() &&
-    // SelectVelocity() &&
+    SelectIMU() &&
+    SelectUltrasonic() &&
+    SelectObstacleDistance() &&
+    SelectVelocity() &&
     true;
 }
 
@@ -245,6 +247,11 @@ bool GuidanceDriver::ProcessImageData(char* content) {
       memcpy(greyscale_right.data, data->m_greyscale_image_right[i], IMAGE_SIZE);
       ProcessGreyscaleRightImage(greyscale_right);
     }
+    if (data->m_greyscale_image_left[i] && data->m_greyscale_image_right[i]) {
+      memcpy(greyscale_left.data, data->m_greyscale_image_left[i], IMAGE_SIZE);
+      memcpy(greyscale_right.data, data->m_greyscale_image_right[i], IMAGE_SIZE);
+      ProcessStereoPair(greyscale_left, greyscale_right, i);
+    }
     if (data->m_depth_image[i]) {
       memcpy(depth.data, data->m_depth_image[i], IMAGE_SIZE * 2);
       ProcessDepthImage(depth);
@@ -272,6 +279,27 @@ bool GuidanceDriver::ProcessGreyscaleRightImage(cv::Mat img) {
   right.header.stamp    = ros::Time::now();
   right.encoding        = sensor_msgs::image_encodings::MONO8;
   right_image_pub_.publish(right.toImageMsg());
+}
+
+bool GuidanceDriver::ProcessStereoPair(cv::Mat left, cv::Mat right, int index) {
+  dji_guidance::stereo_pair msg;
+  msg.vbus_index = index;
+
+  cv_bridge::CvImage left_img;
+  left.copyTo(left_img.image);
+  left_img.header.frame_id = "guidance";
+  left_img.header.stamp    = ros::Time::now();
+  left_img.encoding        = sensor_msgs::image_encodings::MONO8;
+  msg.left = *(left_img.toImageMsg());
+
+  cv_bridge::CvImage right_img;
+  right.copyTo(right_img.image);
+  right_img.header.frame_id = "guidance";
+  right_img.header.stamp    = ros::Time::now();
+  right_img.encoding        = sensor_msgs::image_encodings::MONO8;
+  msg.right = *(right_img.toImageMsg());
+
+  stereo_pair_pub_.publish(msg);
 }
 
 bool GuidanceDriver::ProcessDepthImage(cv::Mat img) {
@@ -397,6 +425,7 @@ bool GuidanceDriver::SelectCameraPair(camera_direction dir) {
   if (select_greyscale_image((e_vbus_index)dir, true)) {
     return false;
   }
+  return true;
 }
 
 bool GuidanceDriver::SelectIMU() {

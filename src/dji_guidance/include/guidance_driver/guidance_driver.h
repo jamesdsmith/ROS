@@ -115,6 +115,7 @@ private:
 
   bool ProcessGreyscaleLeftImage(cv::Mat img);
   bool ProcessGreyscaleRightImage(cv::Mat img);
+  bool ProcessStereoPair(cv::Mat left, cv::Mat right, int index);
   bool ProcessDepthImage(cv::Mat img);
   bool ProcessDisparityImage(cv::Mat img);
 
@@ -132,6 +133,7 @@ private:
   ros::Publisher obstacle_distance_pub_;
   ros::Publisher velocity_pub_;
   ros::Publisher ultrasonic_pub_;
+  ros::Publisher stereo_pair_pub_;
 
   // Time stamp.
   ros::Time stamp_;
